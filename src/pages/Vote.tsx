@@ -49,18 +49,21 @@ export const Vote = () => {
     
     setLoading(true);
     setMessage(null);
-    const success = await votePlayer(token!, target, ataque, defesa, fisico, passe, guardaRedes, fairplay);
+    const res = await votePlayer(token!, target, ataque, defesa, fisico, passe, guardaRedes, fairplay);
     setLoading(false);
     
-    if (success) {
+    if (res.success) {
       setMessage({ type: 'success', text: 'Voto submetido com sucesso! As médias serão atualizadas.' });
       setMyVotes(prev => ({
         ...prev,
         [target]: { ataque, defesa, fisico, passe, guardaRedes, fairplay }
       }));
-      setTarget('');
     } else {
-      setMessage({ type: 'error', text: 'Erro ao submeter voto. O Servidor pode estar ocupado.' });
+      if (res.error?.includes("Invalid or expired token") || res.error?.includes("login")) {
+         setMessage({ type: 'error', text: 'A tua sessão expirou. Por favor, recarrega a página (F5) e faz login de novo.' });
+      } else {
+         setMessage({ type: 'error', text: res.error || 'Erro ao submeter voto. O Servidor pode estar ocupado.' });
+      }
     }
   };
 

@@ -79,8 +79,19 @@ export const fetchMyVotes = async (token: string): Promise<Record<string, { ataq
   }
 };
 
-export const votePlayer = async (token: string, targetEmail: string, ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number, fairplay: number): Promise<boolean> => {
-  return sendPostRequest({ action: 'vote', token, data: { targetEmail, ataque, defesa, fisico, passe, guardaRedes, fairplay } });
+export const votePlayer = async (token: string, targetEmail: string, ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number, fairplay: number): Promise<{success: boolean, error?: string}> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      return { success: true };
+    }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'vote', token, data: { targetEmail, ataque, defesa, fisico, passe, guardaRedes, fairplay } })
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: 'Erro de conexão ao servidor.' };
+  }
 };
 
 export const registerGame = async (token: string, gameDate: string, resA: number, resB: number, equipaA: string[], equipaB: string[]): Promise<{success: boolean, error?: string}> => {
