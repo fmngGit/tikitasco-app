@@ -7,6 +7,7 @@ export const Leaderboard = () => {
   const [users, setUsers] = useState<UserStats[]>([]);
   const [latestGame, setLatestGame] = useState<GameStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<UserStats | null>(null);
 
   useEffect(() => {
     Promise.all([fetchUsers(), fetchGames()]).then(([userData, gameData]) => {
@@ -94,7 +95,13 @@ export const Leaderboard = () => {
               </thead>
               <tbody>
                 {users.map((user, idx) => (
-                  <tr key={user.Email} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', cursor: 'default' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <tr 
+                    key={user.Email} 
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', cursor: 'pointer' }} 
+                    onClick={() => setSelectedUser(user)}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'} 
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
                     <td style={{ padding: '1rem', fontWeight: 700 }}>{idx + 1}</td>
                     <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       {user.Avatar && <img src={user.Avatar} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />}
@@ -112,6 +119,17 @@ export const Leaderboard = () => {
             </table>
           </div>
         </>
+      )}
+
+      {selectedUser && (
+        <div 
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, backdropFilter: 'blur(4px)' }} 
+          onClick={() => setSelectedUser(null)}
+        >
+          <div onClick={e => e.stopPropagation()} className="animate-fade-in">
+             <PlayerCard player={selectedUser} />
+          </div>
+        </div>
       )}
     </div>
   );
