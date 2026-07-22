@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Trophy, CheckSquare, PlusCircle, Calendar, LogOut } from 'lucide-react';
+import logoUrl from '../assets/tikitasco.png';
 
 export const Navbar = () => {
   const { profile, logout } = useAuth();
@@ -22,8 +23,9 @@ export const Navbar = () => {
     }}>
       <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          <Link to="/" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
-            Tiki<span style={{ color: 'var(--primary)' }}>Tasco</span>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
+            <img src={logoUrl} alt="TikiTasco Logo" style={{ height: '32px', width: 'auto' }} />
+            <div>Tiki<span style={{ color: 'var(--primary)' }}>Tasco</span></div>
           </Link>
           
           <div style={{ display: 'flex', gap: '1.5rem' }}>
