@@ -9,7 +9,7 @@ A infraestrutura foi desenhada para ser **100% gratuita** e totalmente **segura*
 - **Base de Dados:** Google Sheets
 - **Backend / API Segura:** Google Apps Script (Funciona como middleware seguro e valida todas as identidades)
 - **Autenticação:** Google Identity Services (Login Seguro com o Google)
-- **Design:** CSS Vanilla + UI Moderna / Glassmorphism + Micro-animações
+- **Design:** CSS Vanilla + UI Moderna / Glassmorphism + Micro-animações / **Otimização Total Mobile**
 
 ## ✅ O que já foi feito (Funcionalidades Atuais)
 
@@ -23,9 +23,11 @@ A infraestrutura foi desenhada para ser **100% gratuita** e totalmente **segura*
    - Físico (FIS)
    - Passe (PAS)
    - Guarda-Redes (GR)
-6. **Cartões de Jogador:** O OVR (*Overall*) e as pontuações médias individuais de cada jogador são dinamicamente calculadas pelo backend e exibidas numa UI de cartão apelativo. Regra de segurança ativa: ninguém pode votar em si próprio.
-7. **Histórico de Jogos:** Registo detalhado, incluindo quem jogou em que equipa e o Último Jogo destacado logo na página principal.
-8. **Pronto a Hospedar (GitHub Pages):** Sistema inteiramente passado para `HashRouter` para compatibilidade estática em modo de produção.
+   - Fairplay (FP)
+6. **Carregamento Inteligente de Votos:** O sistema lembra-se das pontuações antigas! Ao acederes à página de votação e escolheres um colega de equipa, os *sliders* são automaticamente preenchidos com os valores do teu último voto para que possas ajustá-los de forma fácil e intuitiva.
+7. **Cartões de Jogador:** O OVR (*Overall*) e as pontuações médias individuais de cada jogador (baseadas nas 6 estatísticas) são dinamicamente calculadas pelo backend e exibidas numa UI de cartão apelativo, ordenado pelo escalão (Bronze, Silver, Gold). Regra de segurança ativa: ninguém pode votar em si próprio.
+8. **Histórico de Jogos:** Registo detalhado, incluindo quem jogou em que equipa e o Último Jogo destacado logo na página principal.
+9. **Pronto a Hospedar (GitHub Pages):** Sistema inteiramente passado para `HashRouter` para compatibilidade estática em modo de produção.
 
 ## 🚀 Próximos Passos (O que falta fazer / Ideias Futuras)
 
