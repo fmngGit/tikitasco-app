@@ -23,7 +23,7 @@ function setupSheets() {
   };
 
   setupSheet("Users", ["Nome", "Email", "Vitorias", "Empates", "Derrotas", "Pontos_Totais", "Jogos_Jogados", "Avatar"]);
-  setupSheet("Votes", ["Voter_Email", "Target_Email", "Ataque", "Defesa", "Fisico", "Passe", "Timestamp", "Guarda_Redes"]);
+  setupSheet("Votes", ["Voter_Email", "Target_Email", "Ataque", "Defesa", "Fisico", "Passe", "Timestamp", "Guarda_Redes", "Fairplay"]);
   setupSheet("Games", ["GameID", "Data", "Resultado_A", "Resultado_B", "Equipa_A", "Equipa_B"]);
 }
 
@@ -143,7 +143,7 @@ function doGet(e) {
        
        // Calcular médias
        users.forEach(u => {
-          let count = 0; let atq = 0; let def = 0; let fis = 0; let pas = 0; let gr = 0;
+          let count = 0; let atq = 0; let def = 0; let fis = 0; let pas = 0; let gr = 0; let fp = 0;
           for(let v=1; v<votesData.length; v++) {
              if(votesData[v][1] === u.Email) { // Target_Email está no index 1
                 count++;
@@ -153,6 +153,8 @@ function doGet(e) {
                 pas += Number(votesData[v][5]);
                 let grVal = Number(votesData[v][7]);
                 gr += (isNaN(grVal) || grVal === 0) ? 50 : grVal; // Votos antigos sem GR ficam com base de 50
+                let fpVal = Number(votesData[v][8]);
+                fp += (isNaN(fpVal) || fpVal === 0) ? 50 : fpVal; // Votos antigos sem FP ficam com base de 50
              }
           }
           if(count > 0) {
@@ -161,10 +163,11 @@ function doGet(e) {
              u.Fisico = Math.round(fis/count);
              u.Passe = Math.round(pas/count);
              u.Guarda_Redes = Math.round(gr/count);
-             u.Overall = Math.round((u.Ataque + u.Defesa + u.Fisico + u.Passe + u.Guarda_Redes) / 5);
+             u.Fairplay = Math.round(fp/count);
+             u.Overall = Math.round((u.Ataque + u.Defesa + u.Fisico + u.Passe + u.Guarda_Redes + u.Fairplay) / 6);
              u.TotalVotos = count;
           } else {
-             u.Ataque = 0; u.Defesa = 0; u.Fisico = 0; u.Passe = 0; u.Guarda_Redes = 0; u.Overall = 0;
+             u.Ataque = 0; u.Defesa = 0; u.Fisico = 0; u.Passe = 0; u.Guarda_Redes = 0; u.Fairplay = 0; u.Overall = 0;
              u.TotalVotos = 0;
           }
        });
@@ -241,6 +244,7 @@ function registerVote(voterEmail, data) {
           sheet.getRange(i + 1, 6).setValue(data.passe);
           sheet.getRange(i + 1, 7).setValue(new Date().toISOString());
           sheet.getRange(i + 1, 8).setValue(data.guardaRedes);
+          sheet.getRange(i + 1, 9).setValue(data.fairplay);
           
           return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Voto atualizado com sucesso!" }))
             .setMimeType(ContentService.MimeType.JSON);
@@ -248,7 +252,7 @@ function registerVote(voterEmail, data) {
     }
     
     // Se não encontrou, regista um novo
-    sheet.appendRow([voterEmail, data.targetEmail, data.ataque, data.defesa, data.fisico, data.passe, new Date().toISOString(), data.guardaRedes]);
+    sheet.appendRow([voterEmail, data.targetEmail, data.ataque, data.defesa, data.fisico, data.passe, new Date().toISOString(), data.guardaRedes, data.fairplay]);
     return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Voto registado com sucesso!" }))
       .setMimeType(ContentService.MimeType.JSON);
 }
@@ -260,12 +264,14 @@ function getMyVotes(email) {
     for (let i = 1; i < data.length; i++) {
         if (data[i][0] === email) {
             let grVal = Number(data[i][7]);
+            let fpVal = Number(data[i][8]);
             myVotes[data[i][1]] = {
                 ataque: Number(data[i][2]),
                 defesa: Number(data[i][3]),
                 fisico: Number(data[i][4]),
                 passe: Number(data[i][5]),
-                guardaRedes: (isNaN(grVal) || grVal === 0) ? 50 : grVal
+                guardaRedes: (isNaN(grVal) || grVal === 0) ? 50 : grVal,
+                fairplay: (isNaN(fpVal) || fpVal === 0) ? 50 : fpVal
             };
         }
     }

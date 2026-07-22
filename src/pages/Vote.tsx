@@ -12,7 +12,8 @@ export const Vote = () => {
   const [fisico, setFisico] = useState(50);
   const [passe, setPasse] = useState(50);
   const [guardaRedes, setGuardaRedes] = useState(50);
-  const [myVotes, setMyVotes] = useState<Record<string, { ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number }>>({});
+  const [fairplay, setFairplay] = useState(50);
+  const [myVotes, setMyVotes] = useState<Record<string, { ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number, fairplay: number }>>({});
   
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
@@ -36,8 +37,9 @@ export const Vote = () => {
       setFisico(v.fisico);
       setPasse(v.passe);
       setGuardaRedes(v.guardaRedes);
+      setFairplay(v.fairplay);
     } else {
-      setAtaque(50); setDefesa(50); setFisico(50); setPasse(50); setGuardaRedes(50);
+      setAtaque(50); setDefesa(50); setFisico(50); setPasse(50); setGuardaRedes(50); setFairplay(50);
     }
   }, [target, myVotes]);
 
@@ -47,14 +49,14 @@ export const Vote = () => {
     
     setLoading(true);
     setMessage(null);
-    const success = await votePlayer(token!, target, ataque, defesa, fisico, passe, guardaRedes);
+    const success = await votePlayer(token!, target, ataque, defesa, fisico, passe, guardaRedes, fairplay);
     setLoading(false);
     
     if (success) {
       setMessage({ type: 'success', text: 'Voto submetido com sucesso! As médias serão atualizadas.' });
       setMyVotes(prev => ({
         ...prev,
-        [target]: { ataque, defesa, fisico, passe, guardaRedes }
+        [target]: { ataque, defesa, fisico, passe, guardaRedes, fairplay }
       }));
       setTarget('');
     } else {
@@ -110,6 +112,21 @@ export const Vote = () => {
             max="99" 
             value={guardaRedes} 
             onChange={(e) => setGuardaRedes(Number(e.target.value))} 
+            style={{ width: '100%', accentColor: 'var(--primary)' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <label style={{ fontWeight: 600 }}>Fairplay (Espírito Desportivo, Atitude)</label>
+            <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{fairplay}</span>
+          </div>
+          <input 
+            type="range" 
+            min="1" 
+            max="99" 
+            value={fairplay} 
+            onChange={(e) => setFairplay(Number(e.target.value))} 
             style={{ width: '100%', accentColor: 'var(--primary)' }}
           />
         </div>
