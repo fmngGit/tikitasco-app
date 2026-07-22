@@ -100,6 +100,14 @@ function doPost(e) {
        const result = registerGame(params.data);
        lock.releaseLock();
        return result;
+    } else if (action === "edit_game") {
+       const result = editGame(params.data);
+       lock.releaseLock();
+       return result;
+    } else if (action === "delete_game") {
+       const result = deleteGame(params.data);
+       lock.releaseLock();
+       return result;
     }
     
     lock.releaseLock();
@@ -279,50 +287,119 @@ function getMyVotes(email) {
       .setMimeType(ContentService.MimeType.JSON);
 }
 
-function registerGame(data) {
+function registerGame(params) {
     const sheet = getSpreadsheet().getSheetByName("Games");
     const gameId = Utilities.getUuid();
     
-    const eqA = JSON.stringify(data.equipaA);
-    const eqB = JSON.stringify(data.equipaB);
-    const gameDate = data.date ? new Date(data.date).toISOString() : new Date().toISOString();
+    const eqA = JSON.stringify(params.equipaA);
+    const eqB = JSON.stringify(params.equipaB);
+    const gameDate = params.date ? new Date(params.date).toISOString() : new Date().toISOString();
 
     // Columns: GameID, Data, ResA, ResB, EquipaA, EquipaB
-    sheet.appendRow([gameId, gameDate, data.resA, data.resB, eqA, eqB]);
+    sheet.appendRow([gameId, gameDate, params.resA, params.resB, eqA, eqB]);
     
-    // Update Users stats
-    updateUserStats(data.equipaA, data.equipaB, data.resA, data.resB);
+    recalculateAllUserStats();
     
     return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Jogo registado e pontos atribuídos!" }))
       .setMimeType(ContentService.MimeType.JSON);
 }
 
-function updateUserStats(equipaA, equipaB, resA, resB) {
-    const sheet = getSpreadsheet().getSheetByName("Users");
+function editGame(params) {
+    const sheet = getSpreadsheet().getSheetByName("Games");
     const data = sheet.getDataRange().getValues();
+    const gameId = params.gameId;
     
-    let ptsA = 0; let ptsB = 0;
-    let winA = 0; let winB = 0;
-    let draw = 0; let lossA = 0; let lossB = 0;
-    
-    if (resA > resB) { ptsA = 3; winA = 1; lossB = 1; }
-    else if (resB > resA) { ptsB = 3; winB = 1; lossA = 1; }
-    else { ptsA = 1; ptsB = 1; draw = 1; }
-    
+    let rowIndex = -1;
     for (let i = 1; i < data.length; i++) {
-       const email = data[i][1];
-       if (equipaA.includes(email)) {
-          sheet.getRange(i+1, 3).setValue(Number(data[i][2]) + winA); // Vitórias
-          sheet.getRange(i+1, 4).setValue(Number(data[i][3]) + draw); // Empates
-          sheet.getRange(i+1, 5).setValue(Number(data[i][4]) + lossA); // Derrotas
-          sheet.getRange(i+1, 6).setValue(Number(data[i][5]) + ptsA); // Pontos Totais
-          sheet.getRange(i+1, 7).setValue(Number(data[i][6]) + 1); // Jogos
-       } else if (equipaB.includes(email)) {
-          sheet.getRange(i+1, 3).setValue(Number(data[i][2]) + winB);
-          sheet.getRange(i+1, 4).setValue(Number(data[i][3]) + draw);
-          sheet.getRange(i+1, 5).setValue(Number(data[i][4]) + lossB);
-          sheet.getRange(i+1, 6).setValue(Number(data[i][5]) + ptsB);
-          sheet.getRange(i+1, 7).setValue(Number(data[i][6]) + 1);
-       }
+        if (data[i][0] === gameId) {
+            rowIndex = i + 1;
+            break;
+        }
+    }
+    
+    if (rowIndex === -1) {
+       return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Jogo não encontrado!" })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const gameDate = params.date ? new Date(params.date).toISOString() : new Date().toISOString();
+    sheet.getRange(rowIndex, 2).setValue(gameDate);
+    sheet.getRange(rowIndex, 3).setValue(params.resA);
+    sheet.getRange(rowIndex, 4).setValue(params.resB);
+    sheet.getRange(rowIndex, 5).setValue(JSON.stringify(params.equipaA));
+    sheet.getRange(rowIndex, 6).setValue(JSON.stringify(params.equipaB));
+    
+    recalculateAllUserStats();
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Jogo atualizado com sucesso!" })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function deleteGame(params) {
+    const sheet = getSpreadsheet().getSheetByName("Games");
+    const data = sheet.getDataRange().getValues();
+    const gameId = params.gameId;
+    
+    let rowIndex = -1;
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === gameId) {
+            rowIndex = i + 1;
+            break;
+        }
+    }
+    
+    if (rowIndex === -1) {
+       return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Jogo não encontrado!" })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    sheet.deleteRow(rowIndex);
+    recalculateAllUserStats();
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Jogo apagado com sucesso!" })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function recalculateAllUserStats() {
+    const usersSheet = getSpreadsheet().getSheetByName("Users");
+    const gamesSheet = getSpreadsheet().getSheetByName("Games");
+    
+    const usersData = usersSheet.getDataRange().getValues();
+    const gamesData = gamesSheet.getDataRange().getValues();
+    
+    let userStats = {};
+    for (let i = 1; i < usersData.length; i++) {
+        userStats[usersData[i][1]] = { vitorias: 0, empates: 0, derrotas: 0, pontos: 0, jogos: 0, rowIndex: i + 1 };
+    }
+    
+    for (let g = 1; g < gamesData.length; g++) {
+        const resA = Number(gamesData[g][2]);
+        const resB = Number(gamesData[g][3]);
+        let equipaA = []; let equipaB = [];
+        try { equipaA = JSON.parse(gamesData[g][4]); } catch(e){}
+        try { equipaB = JSON.parse(gamesData[g][5]); } catch(e){}
+        
+        let ptsA = 0; let ptsB = 0; let winA = 0; let winB = 0; let draw = 0; let lossA = 0; let lossB = 0;
+        if (resA > resB) { ptsA = 3; winA = 1; lossB = 1; }
+        else if (resB > resA) { ptsB = 3; winB = 1; lossA = 1; }
+        else { ptsA = 1; ptsB = 1; draw = 1; }
+        
+        equipaA.forEach(email => {
+            if (userStats[email]) {
+                userStats[email].vitorias += winA; userStats[email].empates += draw; userStats[email].derrotas += lossA;
+                userStats[email].pontos += ptsA; userStats[email].jogos += 1;
+            }
+        });
+        equipaB.forEach(email => {
+            if (userStats[email]) {
+                userStats[email].vitorias += winB; userStats[email].empates += draw; userStats[email].derrotas += lossB;
+                userStats[email].pontos += ptsB; userStats[email].jogos += 1;
+            }
+        });
+    }
+    
+    for (let email in userStats) {
+        const stats = userStats[email];
+        usersSheet.getRange(stats.rowIndex, 3).setValue(stats.vitorias);
+        usersSheet.getRange(stats.rowIndex, 4).setValue(stats.empates);
+        usersSheet.getRange(stats.rowIndex, 5).setValue(stats.derrotas);
+        usersSheet.getRange(stats.rowIndex, 6).setValue(stats.pontos);
+        usersSheet.getRange(stats.rowIndex, 7).setValue(stats.jogos);
     }
 }

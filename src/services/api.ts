@@ -107,6 +107,51 @@ export const registerGame = async (token: string, gameDate: string, resA: number
   }
 };
 
+export const editGame = async (token: string, gameId: string, gameDate: string, resA: number, resB: number, equipaA: string[], equipaB: string[]): Promise<{success: boolean, error?: string}> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      return { success: true };
+    }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'edit_game',
+        token,
+        gameId,
+        date: gameDate,
+        resA,
+        resB,
+        equipaA,
+        equipaB
+      })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
+export const deleteGame = async (token: string, gameId: string): Promise<{success: boolean, error?: string}> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      return { success: true };
+    }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'delete_game',
+        token,
+        gameId
+      })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
 const sendPostRequest = async (payload: any): Promise<boolean> => {
   if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) return true;
   try {

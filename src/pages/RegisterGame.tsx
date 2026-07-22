@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { fetchUsers, registerGame, type UserStats } from '../services/api';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { fetchUsers, fetchGames, registerGame, editGame, type UserStats } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export const RegisterGame = () => {
   const { token } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const editGameId = searchParams.get('edit');
+
   const [users, setUsers] = useState<UserStats[]>([]);
   
   const [equipaA, setEquipaA] = useState<string[]>([]);
@@ -17,7 +22,19 @@ export const RegisterGame = () => {
 
   useEffect(() => {
     fetchUsers().then(data => setUsers(data));
-  }, []);
+    if (editGameId) {
+      fetchGames().then(games => {
+        const gameToEdit = games.find(g => g.GameID === editGameId);
+        if (gameToEdit) {
+          setResA(gameToEdit.Resultado_A);
+          setResB(gameToEdit.Resultado_B);
+          setEquipaA(gameToEdit.Equipa_A);
+          setEquipaB(gameToEdit.Equipa_B);
+          setGameDate(new Date(gameToEdit.Data).toISOString().split('T')[0]);
+        }
+      });
+    }
+  }, [editGameId]);
 
   const handlePlayerToggle = (email: string, team: 'A' | 'B') => {
     if (team === 'A') {
@@ -44,21 +61,32 @@ export const RegisterGame = () => {
     
     setLoading(true);
     setMessage(null);
-    const res = await registerGame(token!, gameDate, resA, resB, equipaA, equipaB);
+    let res;
+    if (editGameId) {
+      res = await editGame(token!, editGameId, gameDate, resA, resB, equipaA, equipaB);
+    } else {
+      res = await registerGame(token!, gameDate, resA, resB, equipaA, equipaB);
+    }
     setLoading(false);
     
     if (res.success) {
-      setMessage({ type: 'success', text: 'Jogo registado! Os pontos foram atualizados na tabela.' });
-      setEquipaA([]); setEquipaB([]);
-      setResA(0); setResB(0);
+      if (editGameId) {
+        setMessage({ type: 'success', text: 'Alterações guardadas com sucesso!' });
+        setTimeout(() => navigate('/history'), 1500);
+      } else {
+        setMessage({ type: 'success', text: 'Jogo registado! Os pontos foram atualizados na tabela.' });
+        setEquipaA([]); setEquipaB([]);
+        setResA(0); setResB(0);
+        setGameDate(new Date().toISOString().split('T')[0]);
+      }
     } else {
-      setMessage({ type: 'error', text: res.error || 'Erro ao registar jogo.' });
+      setMessage({ type: 'error', text: res.error || 'Erro ao guardar jogo.' });
     }
   };
 
   return (
     <div className="container animate-fade-in" style={{ padding: '2rem 1.5rem', maxWidth: '800px' }}>
-      <h1 style={{ marginBottom: '2rem' }}>Registar Jogo</h1>
+      <h1 style={{ marginBottom: '2rem' }}>{editGameId ? 'Editar Jogo' : 'Registar Jogo'}</h1>
 
       <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '2rem' }}>
         
@@ -135,7 +163,7 @@ export const RegisterGame = () => {
         )}
 
         <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={loading}>
-          {loading ? 'A Registar...' : 'Registar Jogo'}
+          {loading ? 'A Guardar...' : (editGameId ? 'Guardar Alterações' : 'Registar Jogo')}
         </button>
       </form>
     </div>

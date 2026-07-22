@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
-import { fetchGames, fetchUsers, type GameStats, type UserStats } from '../services/api';
-import { Calendar } from 'lucide-react';
+import { fetchGames, fetchUsers, deleteGame, type GameStats, type UserStats } from '../services/api';
+import { Calendar, Edit, Trash2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export const History = () => {
+  const { token } = useAuth();
+  const navigate = useNavigate();
   const [games, setGames] = useState<GameStats[]>([]);
   const [users, setUsers] = useState<UserStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +18,19 @@ export const History = () => {
       setLoading(false);
     });
   }, []);
+
+  const handleDelete = async (gameId: string) => {
+    if (!window.confirm("Tens a certeza que queres apagar este jogo? As estatísticas serão recalculadas de forma absoluta.")) return;
+    
+    setLoading(true);
+    const res = await deleteGame(token!, gameId);
+    if (res.success) {
+      setGames(prev => prev.filter(g => g.GameID !== gameId));
+    } else {
+      alert("Erro ao apagar jogo: " + res.error);
+    }
+    setLoading(false);
+  };
 
   const renderTeam = (teamEmails: string[]) => {
     return (
@@ -42,9 +59,19 @@ export const History = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {games.map(game => (
             <div key={game.GameID} className="glass-panel" style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                <Calendar size={16} />
-                {new Date(game.Data).toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  <Calendar size={16} />
+                  {new Date(game.Data).toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </div>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button onClick={() => navigate(`/register-game?edit=${game.GameID}`)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem' }}>
+                    <Edit size={16} /> Editar
+                  </button>
+                  <button onClick={() => handleDelete(game.GameID)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem' }}>
+                    <Trash2 size={16} /> Apagar
+                  </button>
+                </div>
               </div>
               
               <div className="game-result-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px' }}>
