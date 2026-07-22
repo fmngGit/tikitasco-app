@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { fetchUsers, fetchGames, type UserStats, type GameStats } from '../services/api';
 import { PlayerCard } from '../components/PlayerCard';
 import { Calendar } from 'lucide-react';
@@ -121,15 +122,16 @@ export const Leaderboard = () => {
         </>
       )}
 
-      {selectedUser && (
+      {selectedUser && createPortal(
         <div 
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, backdropFilter: 'blur(4px)' }} 
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)' }} 
           onClick={() => setSelectedUser(null)}
         >
           <div onClick={e => e.stopPropagation()} className="animate-fade-in">
              <PlayerCard player={selectedUser} />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
