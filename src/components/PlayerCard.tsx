@@ -77,6 +77,9 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ fontWeight: 700 }}>{player.Passe || '-'}</span> <span>PAS</span>
         </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ fontWeight: 700 }}>{player.Guarda_Redes || '-'}</span> <span>GR</span>
+        </div>
       </div>
       
       <div style={{ marginTop: '1rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', width: '100%', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>

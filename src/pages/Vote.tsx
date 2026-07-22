@@ -8,9 +8,10 @@ export const Vote = () => {
   const [target, setTarget] = useState<string>('');
   
   const [ataque, setAtaque] = useState<number>(50);
-  const [defesa, setDefesa] = useState<number>(50);
-  const [fisico, setFisico] = useState<number>(50);
-  const [passe, setPasse] = useState<number>(50);
+  const [defesa, setDefesa] = useState(50);
+  const [fisico, setFisico] = useState(50);
+  const [passe, setPasse] = useState(50);
+  const [guardaRedes, setGuardaRedes] = useState(50);
   
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
@@ -29,15 +30,15 @@ export const Vote = () => {
     
     setLoading(true);
     setMessage(null);
-    const res = await votePlayer(token!, target, { ataque, defesa, fisico, passe });
+    const success = await votePlayer(token!, target, ataque, defesa, fisico, passe, guardaRedes);
     setLoading(false);
     
-    if (res.success) {
+    if (success) {
       setMessage({ type: 'success', text: 'Voto submetido com sucesso! As médias serão atualizadas.' });
       setTarget('');
-      setAtaque(50); setDefesa(50); setFisico(50); setPasse(50);
+      setAtaque(50); setDefesa(50); setFisico(50); setPasse(50); setGuardaRedes(50);
     } else {
-      setMessage({ type: 'error', text: res.error || 'Erro ao submeter voto.' });
+      setMessage({ type: 'error', text: 'Erro ao submeter voto. O Servidor pode estar ocupado.' });
     }
   };
 
@@ -77,6 +78,21 @@ export const Vote = () => {
             />
           </div>
         ))}
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <label style={{ fontWeight: 600 }}>Guarda-Redes (Reflexos, Posicionamento)</label>
+            <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{guardaRedes}</span>
+          </div>
+          <input 
+            type="range" 
+            min="1" 
+            max="99" 
+            value={guardaRedes} 
+            onChange={(e) => setGuardaRedes(Number(e.target.value))} 
+            style={{ width: '100%', accentColor: 'var(--primary)' }}
+          />
+        </div>
 
         {message && (
           <div style={{ 

@@ -53,16 +53,26 @@ function doPost(e) {
     "Access-Control-Allow-Headers": "Content-Type",
   };
 
+  // Configuração do LockService para prevenir problemas de concorrência (múltiplos acessos ao mesmo tempo)
+  const lock = LockService.getScriptLock();
+  
   try {
-    let rawData = e.postData.contents;
-    let data = JSON.parse(rawData);
-    
-    const action = data.action;
-    const token = data.token;
+    // Tenta obter o bloqueio por até 10 segundos
+    lock.waitLock(10000);
+  } catch (e) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Servidor ocupado com demasiados pedidos. Tenta novamente em segundos." }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    const params = JSON.parse(e.postData.contents);
+    const action = params.action;
+    const token = params.token;
     
     // Validar quem faz o pedido
     const userInfo = validateToken(token);
     if (!userInfo || !userInfo.email) {
+      lock.releaseLock();
       return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Invalid or expired token. Please login again." }))
         .setMimeType(ContentService.MimeType.JSON);
     }
@@ -70,21 +80,30 @@ function doPost(e) {
     const userEmail = userInfo.email;
 
     if (action === "register_user") {
-       return registerUser(userEmail, userInfo.name, userInfo.picture);
+       const result = registerUser(userEmail, userInfo.name, userInfo.picture);
+       lock.releaseLock();
+       return result;
     } else if (action === "vote") {
-       if(data.targetEmail === userEmail) {
+       if(params.data.targetEmail === userEmail) {
+          lock.releaseLock();
           return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Regra de Segurança: Não podes votar em ti próprio." }))
              .setMimeType(ContentService.MimeType.JSON);
        }
-       return registerVote(userEmail, data);
+       const result = registerVote(userEmail, params.data);
+       lock.releaseLock();
+       return result;
     } else if (action === "register_game") {
-       return registerGame(data);
+       const result = registerGame(params.data);
+       lock.releaseLock();
+       return result;
     }
     
+    lock.releaseLock();
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Unknown action" }))
       .setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
+    lock.releaseLock();
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }

@@ -80,4 +80,5 @@ A nossa infraestrutura permite alojar o site a custo zero no GitHub Pages. Segue
    - (No GitHub, vai a **Settings > Pages** e verifica se a Source está definida para a branch `gh-pages`).
 
 5. **Aviso de Segurança Crítico (Google Login):**
-   Assim que o site estiver online (ex: `https://o-teu-username.github.io/tikitasco-app/`), **tens de ir ao Google Cloud Console** (ver Passo 1) e adicionar este novo URL às **Origens de JavaScript autorizadas**. Se te esqueceres deste passo, o botão de login da Google vai dar erro quando acederes pelo site publicado!
+   Assim que o site estiver online, **tens de ir ao Google Cloud Console** (ver Passo 1) e adicionar o teu novo domínio às **Origens de JavaScript autorizadas**.
+   - **Atenção:** O Google apenas aceita o domínio base, ou seja, deves colocar apenas `https://o-teu-username.github.io` (sem o `/tikitasco-app` e sem a barra final `/`). Se te esqueceres deste passo, o botão de login da Google vai dar erro quando acederes pelo site publicado!

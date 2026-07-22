@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchGames, fetchUsers, type GameStats, type UserStats } from '../services/api';
 import { Calendar } from 'lucide-react';
 

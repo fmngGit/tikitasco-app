@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { googleLogout } from '@react-oauth/google';
 import { registerUser } from '../services/api';
 import { jwtDecode } from 'jwt-decode';
