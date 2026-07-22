@@ -83,7 +83,7 @@ export const votePlayer = async (token: string, targetEmail: string, ataque: num
   return sendPostRequest({ action: 'vote', token, data: { targetEmail, ataque, defesa, fisico, passe, guardaRedes, fairplay } });
 };
 
-export const registerGame = async (token: string, resA: number, resB: number, equipaA: string[], equipaB: string[]): Promise<{success: boolean, error?: string}> => {
+export const registerGame = async (token: string, gameDate: string, resA: number, resB: number, equipaA: string[], equipaB: string[]): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
       return { success: true };
@@ -93,6 +93,7 @@ export const registerGame = async (token: string, resA: number, resB: number, eq
       body: JSON.stringify({
         action: 'register_game',
         token,
+        date: gameDate,
         resA,
         resB,
         equipaA,

@@ -285,9 +285,10 @@ function registerGame(data) {
     
     const eqA = JSON.stringify(data.equipaA);
     const eqB = JSON.stringify(data.equipaB);
+    const gameDate = data.date ? new Date(data.date).toISOString() : new Date().toISOString();
 
     // Columns: GameID, Data, ResA, ResB, EquipaA, EquipaB
-    sheet.appendRow([gameId, new Date().toISOString(), data.resA, data.resB, eqA, eqB]);
+    sheet.appendRow([gameId, gameDate, data.resA, data.resB, eqA, eqB]);
     
     // Update Users stats
     updateUserStats(data.equipaA, data.equipaB, data.resA, data.resB);

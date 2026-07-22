@@ -10,6 +10,7 @@ export const RegisterGame = () => {
   const [equipaB, setEquipaB] = useState<string[]>([]);
   const [resA, setResA] = useState<number>(0);
   const [resB, setResB] = useState<number>(0);
+  const [gameDate, setGameDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
@@ -43,7 +44,7 @@ export const RegisterGame = () => {
     
     setLoading(true);
     setMessage(null);
-    const res = await registerGame(token!, resA, resB, equipaA, equipaB);
+    const res = await registerGame(token!, gameDate, resA, resB, equipaA, equipaB);
     setLoading(false);
     
     if (res.success) {
@@ -61,6 +62,27 @@ export const RegisterGame = () => {
 
       <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '2rem' }}>
         
+        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Data do Jogo</label>
+          <input 
+            type="date" 
+            value={gameDate} 
+            onChange={(e) => setGameDate(e.target.value)} 
+            style={{ 
+              padding: '0.5rem', 
+              borderRadius: '8px', 
+              border: '1px solid var(--border-color)', 
+              background: 'var(--bg-dark)', 
+              color: 'var(--text-main)', 
+              fontSize: '1.2rem', 
+              textAlign: 'center',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+            required
+          />
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '2rem', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
             <label style={{ display: 'block', textAlign: 'center', marginBottom: '0.5rem', fontWeight: 'bold' }}>Golos Equipa A</label>
