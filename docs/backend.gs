@@ -97,15 +97,19 @@ function doPost(e) {
        lock.releaseLock();
        return result;
     } else if (action === "register_game") {
-       const result = registerGame(params.data);
+       const result = registerGame(params);
        lock.releaseLock();
        return result;
     } else if (action === "edit_game") {
-       const result = editGame(params.data);
+       const result = editGame(params);
        lock.releaseLock();
        return result;
     } else if (action === "delete_game") {
-       const result = deleteGame(params.data);
+       const result = deleteGame(params);
+       lock.releaseLock();
+       return result;
+    } else if (action === "update_avatar") {
+       const result = updateAvatar(userEmail, params.base64);
        lock.releaseLock();
        return result;
     }
@@ -226,9 +230,14 @@ function registerUser(email, name, picture) {
    const data = sheet.getDataRange().getValues();
    for (let i = 1; i < data.length; i++) {
      if (data[i][1] === email) { // Verifica se já existe
-       // Atualiza a foto caso tenha mudado
-       sheet.getRange(i+1, 8).setValue(picture || "");
-       return ContentService.createTextOutput(JSON.stringify({ success: true, message: "User exists, updated avatar." }))
+       const currentAvatar = data[i][7];
+       // Só atualiza a foto se a atual for do Google ou estiver vazia
+       if (!currentAvatar || currentAvatar.includes("googleusercontent.com")) {
+           if (currentAvatar !== picture) {
+               sheet.getRange(i+1, 8).setValue(picture || "");
+           }
+       }
+       return ContentService.createTextOutput(JSON.stringify({ success: true, message: "User exists, updated avatar se aplicável." }))
          .setMimeType(ContentService.MimeType.JSON);
      }
    }
@@ -236,6 +245,20 @@ function registerUser(email, name, picture) {
    sheet.appendRow([name, email, 0, 0, 0, 0, 0, picture || ""]);
    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "User created" }))
      .setMimeType(ContentService.MimeType.JSON);
+}
+
+function updateAvatar(email, base64) {
+    const sheet = getSpreadsheet().getSheetByName("Users");
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][1] === email) {
+            sheet.getRange(i + 1, 8).setValue(base64 || "");
+            return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Avatar atualizado com sucesso!" }))
+                .setMimeType(ContentService.MimeType.JSON);
+        }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Utilizador não encontrado." }))
+        .setMimeType(ContentService.MimeType.JSON);
 }
 
 function registerVote(voterEmail, data) {

@@ -152,6 +152,25 @@ export const deleteGame = async (token: string, gameId: string): Promise<{succes
   }
 };
 
+export const updateAvatar = async (token: string, base64: string): Promise<{success: boolean, error?: string}> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      return { success: true };
+    }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'update_avatar',
+        token,
+        base64
+      })
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
 const sendPostRequest = async (payload: any): Promise<boolean> => {
   if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) return true;
   try {
