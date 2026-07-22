@@ -1,4 +1,4 @@
-const SPREADSHEET_ID = "COLA_AQUI_O_TEU_SPREADSHEET_ID";
+const SPREADSHEET_ID = "1Fuw9J3bvihY_daAr__NtVPmMxZHUL8WmkZRi6WDYlLU";
 
 // Função utilitária para obter a folha de cálculo
 function getSpreadsheet() {
@@ -23,7 +23,7 @@ function setupSheets() {
   };
 
   setupSheet("Users", ["Nome", "Email", "Vitorias", "Empates", "Derrotas", "Pontos_Totais", "Jogos_Jogados", "Avatar"]);
-  setupSheet("Votes", ["Voter_Email", "Target_Email", "Ataque", "Defesa", "Fisico", "Passe", "Timestamp"]);
+  setupSheet("Votes", ["Voter_Email", "Target_Email", "Ataque", "Defesa", "Fisico", "Passe", "Timestamp", "Guarda_Redes"]);
   setupSheet("Games", ["GameID", "Data", "Resultado_A", "Resultado_B", "Equipa_A", "Equipa_B"]);
 }
 
@@ -139,7 +139,7 @@ function doGet(e) {
        
        // Calcular médias
        users.forEach(u => {
-          let count = 0; let atq = 0; let def = 0; let fis = 0; let pas = 0;
+          let count = 0; let atq = 0; let def = 0; let fis = 0; let pas = 0; let gr = 0;
           for(let v=1; v<votesData.length; v++) {
              if(votesData[v][1] === u.Email) { // Target_Email está no index 1
                 count++;
@@ -147,6 +147,8 @@ function doGet(e) {
                 def += Number(votesData[v][3]);
                 fis += Number(votesData[v][4]);
                 pas += Number(votesData[v][5]);
+                let grVal = Number(votesData[v][7]);
+                gr += (isNaN(grVal) || grVal === 0) ? 50 : grVal; // Votos antigos sem GR ficam com base de 50
              }
           }
           if(count > 0) {
@@ -154,10 +156,11 @@ function doGet(e) {
              u.Defesa = Math.round(def/count);
              u.Fisico = Math.round(fis/count);
              u.Passe = Math.round(pas/count);
-             u.Overall = Math.round((u.Ataque + u.Defesa + u.Fisico + u.Passe) / 4);
+             u.Guarda_Redes = Math.round(gr/count);
+             u.Overall = Math.round((u.Ataque + u.Defesa + u.Fisico + u.Passe + u.Guarda_Redes) / 5);
              u.TotalVotos = count;
           } else {
-             u.Ataque = 0; u.Defesa = 0; u.Fisico = 0; u.Passe = 0; u.Overall = 0;
+             u.Ataque = 0; u.Defesa = 0; u.Fisico = 0; u.Passe = 0; u.Guarda_Redes = 0; u.Overall = 0;
              u.TotalVotos = 0;
           }
        });
@@ -233,6 +236,7 @@ function registerVote(voterEmail, data) {
           sheet.getRange(i + 1, 5).setValue(data.fisico);
           sheet.getRange(i + 1, 6).setValue(data.passe);
           sheet.getRange(i + 1, 7).setValue(new Date().toISOString());
+          sheet.getRange(i + 1, 8).setValue(data.guardaRedes);
           
           return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Voto atualizado com sucesso!" }))
             .setMimeType(ContentService.MimeType.JSON);
@@ -240,7 +244,7 @@ function registerVote(voterEmail, data) {
     }
     
     // Se não encontrou, regista um novo
-    sheet.appendRow([voterEmail, data.targetEmail, data.ataque, data.defesa, data.fisico, data.passe, new Date().toISOString()]);
+    sheet.appendRow([voterEmail, data.targetEmail, data.ataque, data.defesa, data.fisico, data.passe, new Date().toISOString(), data.guardaRedes]);
     return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Voto registado com sucesso!" }))
       .setMimeType(ContentService.MimeType.JSON);
 }

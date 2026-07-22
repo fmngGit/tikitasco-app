@@ -63,8 +63,8 @@ export const registerUser = async (token: string): Promise<boolean> => {
   return sendPostRequest({ action: 'register_user', token });
 };
 
-export const votePlayer = async (token: string, targetEmail: string, ataque: number, defesa: number, fisico: number, passe: number, guarda_redes: number): Promise<boolean> => {
-  return sendPostRequest({ action: 'vote', token, data: { targetEmail, ataque, defesa, fisico, passe, guarda_redes } });
+export const votePlayer = async (token: string, targetEmail: string, ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number): Promise<boolean> => {
+  return sendPostRequest({ action: 'vote', token, data: { targetEmail, ataque, defesa, fisico, passe, guardaRedes } });
 };
 
 export const registerGame = async (token: string, resA: number, resB: number, equipaA: string[], equipaB: string[]): Promise<{success: boolean, error?: string}> => {
