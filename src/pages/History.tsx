@@ -47,14 +47,14 @@ export const History = () => {
                 {new Date(game.Data).toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </div>
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px' }}>
+              <div className="game-result-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px' }}>
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <h3 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Equipa A</h3>
                   <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>{game.Resultado_A}</div>
                   {renderTeam(game.Equipa_A)}
                 </div>
                 
-                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-muted)', padding: '0 1rem' }}>X</div>
+                <div className="vs-text" style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-muted)', padding: '0 1rem' }}>X</div>
                 
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <h3 style={{ color: 'var(--danger)', marginBottom: '0.5rem' }}>Equipa B</h3>

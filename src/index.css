@@ -146,3 +146,38 @@ input:focus, select:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* Responsive Utilities */
+@media (max-width: 768px) {
+  .navbar-container {
+    flex-direction: column !important;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  .navbar-logo-area {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+  .navbar-links-container {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 1rem !important;
+    font-size: 0.9rem;
+  }
+  .navbar-user-area {
+    width: 100%;
+    justify-content: space-between !important;
+    padding-top: 1rem;
+    border-top: 1px solid var(--glass-border);
+  }
+  .game-result-card {
+    flex-direction: column !important;
+    gap: 1.5rem !important;
+  }
+  .vs-text {
+    padding: 1rem 0 !important;
+  }
+  .container {
+    padding: 0 1rem;
+  }
+}
