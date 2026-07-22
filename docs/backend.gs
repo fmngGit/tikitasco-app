@@ -92,6 +92,10 @@ function doPost(e) {
        const result = registerVote(userEmail, params.data);
        lock.releaseLock();
        return result;
+    } else if (action === "get_my_votes") {
+       const result = getMyVotes(userEmail);
+       lock.releaseLock();
+       return result;
     } else if (action === "register_game") {
        const result = registerGame(params.data);
        lock.releaseLock();
@@ -246,6 +250,26 @@ function registerVote(voterEmail, data) {
     // Se não encontrou, regista um novo
     sheet.appendRow([voterEmail, data.targetEmail, data.ataque, data.defesa, data.fisico, data.passe, new Date().toISOString(), data.guardaRedes]);
     return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Voto registado com sucesso!" }))
+      .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getMyVotes(email) {
+    const sheet = getSpreadsheet().getSheetByName("Votes");
+    const data = sheet.getDataRange().getValues();
+    const myVotes = {};
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === email) {
+            let grVal = Number(data[i][7]);
+            myVotes[data[i][1]] = {
+                ataque: Number(data[i][2]),
+                defesa: Number(data[i][3]),
+                fisico: Number(data[i][4]),
+                passe: Number(data[i][5]),
+                guardaRedes: (isNaN(grVal) || grVal === 0) ? 50 : grVal
+            };
+        }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: true, data: myVotes }))
       .setMimeType(ContentService.MimeType.JSON);
 }
 

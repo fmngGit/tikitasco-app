@@ -63,6 +63,21 @@ export const registerUser = async (token: string): Promise<boolean> => {
   return sendPostRequest({ action: 'register_user', token });
 };
 
+export const fetchMyVotes = async (token: string): Promise<Record<string, { ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number }>> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) return {};
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'get_my_votes', token })
+    });
+    const data = await res.json();
+    if (data.success) return data.data;
+    return {};
+  } catch (err) {
+    return {};
+  }
+};
+
 export const votePlayer = async (token: string, targetEmail: string, ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number): Promise<boolean> => {
   return sendPostRequest({ action: 'vote', token, data: { targetEmail, ataque, defesa, fisico, passe, guardaRedes } });
 };

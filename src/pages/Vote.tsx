@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchUsers, votePlayer, type UserStats } from '../services/api';
+import { fetchUsers, votePlayer, fetchMyVotes, type UserStats } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export const Vote = () => {
@@ -12,6 +12,7 @@ export const Vote = () => {
   const [fisico, setFisico] = useState(50);
   const [passe, setPasse] = useState(50);
   const [guardaRedes, setGuardaRedes] = useState(50);
+  const [myVotes, setMyVotes] = useState<Record<string, { ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number }>>({});
   
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
@@ -22,7 +23,23 @@ export const Vote = () => {
       // O backend também valida isto de forma segura!
       setUsers(data.filter(u => u.Email !== profile?.email));
     });
-  }, [profile]);
+    if (token) {
+      fetchMyVotes(token).then(setMyVotes);
+    }
+  }, [profile, token]);
+
+  useEffect(() => {
+    if (target && myVotes[target]) {
+      const v = myVotes[target];
+      setAtaque(v.ataque);
+      setDefesa(v.defesa);
+      setFisico(v.fisico);
+      setPasse(v.passe);
+      setGuardaRedes(v.guardaRedes);
+    } else {
+      setAtaque(50); setDefesa(50); setFisico(50); setPasse(50); setGuardaRedes(50);
+    }
+  }, [target, myVotes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,8 +52,11 @@ export const Vote = () => {
     
     if (success) {
       setMessage({ type: 'success', text: 'Voto submetido com sucesso! As médias serão atualizadas.' });
+      setMyVotes(prev => ({
+        ...prev,
+        [target]: { ataque, defesa, fisico, passe, guardaRedes }
+      }));
       setTarget('');
-      setAtaque(50); setDefesa(50); setFisico(50); setPasse(50); setGuardaRedes(50);
     } else {
       setMessage({ type: 'error', text: 'Erro ao submeter voto. O Servidor pode estar ocupado.' });
     }
