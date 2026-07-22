@@ -12,18 +12,10 @@ export const Navbar = () => {
   const isActive = (path: string) => location.pathname === path ? 'var(--primary)' : 'var(--text-muted)';
 
   return (
-    <nav style={{
-      background: 'var(--glass-bg)',
-      backdropFilter: 'blur(10px)',
-      borderBottom: '1px solid var(--glass-border)',
-      padding: '1rem 0',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100
-    }}>
+    <nav className="top-nav">
       <div className="container navbar-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="navbar-logo-area" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+          <Link className="navbar-logo-area" to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
             <img src={logoUrl} alt="TikiTasco Logo" style={{ height: '48px', width: 'auto' }} />
             <div>Tiki<span style={{ color: 'var(--primary)' }}>Tasco</span></div>
           </Link>
