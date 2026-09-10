@@ -19,7 +19,7 @@ import { Video, Plus, RefreshCw, Trophy, Trash2 } from 'lucide-react';
 type Modality = 'standard' | 'reidapista' | 'rotacao_dinamica';
 
 export const RegisterGame = () => {
-  const { token } = useAuth();
+  const { token, logout } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -70,6 +70,7 @@ export const RegisterGame = () => {
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [creatingGuest, setCreatingGuest] = useState(false);
+  const [guestError, setGuestError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -141,16 +142,42 @@ export const RegisterGame = () => {
   // Criar convidado rápido
   const handleCreateGuest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!guestName.trim() || !token) return;
+    if (!guestName.trim()) return;
+
+    if (!token) {
+      setGuestError('Sessão não detetada. Por favor faz login com a tua conta Google para adicionar convidados.');
+      return;
+    }
 
     setCreatingGuest(true);
+    setGuestError(null);
     const res = await createGuestPlayer(token, guestName.trim());
     setCreatingGuest(false);
 
     if (res.success && res.user) {
-      setUsers(prev => [...prev, res.user!]);
+      const newUser = res.user;
+      setUsers(prev => [...prev, newUser]);
+
+      // Auto-selecionar o novo convidado na modalidade atual
+      if (modality === 'standard') {
+        if (equipaA.length <= equipaB.length) {
+          setEquipaA(prev => [...prev, newUser.Email]);
+        } else {
+          setEquipaB(prev => [...prev, newUser.Email]);
+        }
+      } else if (modality === 'rotacao_dinamica') {
+        setRotPool(prev => [...prev, newUser.Email]);
+      }
+
       setGuestName('');
+      setGuestError(null);
       setShowAddGuest(false);
+    } else {
+      const errMsg = res.error || 'Erro ao comunicar com a base de dados.';
+      setGuestError(errMsg);
+      if (errMsg.toLowerCase().includes('expired') || errMsg.toLowerCase().includes('token')) {
+        setTimeout(() => logout(), 2500);
+      }
     }
   };
 
@@ -1000,26 +1027,55 @@ export const RegisterGame = () => {
             background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 9999, backdropFilter: 'blur(4px)', padding: '1rem'
           }}
-          onClick={() => setShowAddGuest(false)}
+          onClick={() => { setShowAddGuest(false); setGuestError(null); }}
         >
           <div
             className="glass-panel animate-fade-in"
-            style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}
+            style={{ width: '100%', maxWidth: '420px', padding: '2rem' }}
             onClick={e => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: '1rem' }}>Adicionar Convidado</h3>
+            <h3 style={{ marginBottom: '0.5rem' }}>Adicionar Convidado</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+              O convidado será adicionado à lista e ficará disponível para jogar. Mais tarde pode reivindicar este perfil com a conta Google.
+            </p>
+
+            {guestError && (
+              <div style={{
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                marginBottom: '1rem',
+                background: 'rgba(239, 68, 68, 0.15)',
+                color: 'var(--danger)',
+                fontSize: '0.85rem',
+                border: '1px solid var(--danger)',
+                lineHeight: 1.4
+              }}>
+                <strong>Erro:</strong> {guestError}
+                {guestError.toLowerCase().includes('unknown action') && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    💡 É necessário atualizar o código no Google Apps Script para a versão mais recente do ficheiro <code>docs/backend.gs</code> e publicar uma <strong>Nova versão</strong>.
+                  </div>
+                )}
+                {(guestError.toLowerCase().includes('token') || guestError.toLowerCase().includes('expired')) && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    A tua sessão Google expirou. A página vai reiniciar a sessão para poderes voltar a entrar.
+                  </div>
+                )}
+              </div>
+            )}
+
             <form onSubmit={handleCreateGuest}>
               <input
                 type="text"
                 placeholder="Nome do Convidado (ex: Pedro)"
                 value={guestName}
-                onChange={e => setGuestName(e.target.value)}
+                onChange={e => { setGuestName(e.target.value); setGuestError(null); }}
                 required
                 style={{ marginBottom: '1.25rem' }}
                 autoFocus
               />
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setShowAddGuest(false)} className="btn-secondary">
+                <button type="button" onClick={() => { setShowAddGuest(false); setGuestError(null); }} className="btn-secondary">
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary" disabled={creatingGuest}>

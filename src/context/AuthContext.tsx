@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { googleLogout } from '@react-oauth/google';
 import { registerUser } from '../services/api';
 import { jwtDecode } from 'jwt-decode';
@@ -16,6 +16,21 @@ interface AuthContextType {
   logout: () => void;
 }
 
+// Verifica se o token JWT do Google ainda é válido (não expirou)
+export const isTokenValid = (token: string | null): boolean => {
+  if (!token) return false;
+  try {
+    const decoded: any = jwtDecode(token);
+    // Margem de segurança de 30 segundos
+    if (decoded.exp && decoded.exp * 1000 <= Date.now() + 30000) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const AuthContext = createContext<AuthContextType>({
   token: null,
   profile: null,
@@ -24,13 +39,51 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('tiki_token'));
-  const [profile, setProfile] = useState<UserProfile | null>(
-    localStorage.getItem('tiki_profile') ? JSON.parse(localStorage.getItem('tiki_profile')!) : null
-  );
+  const [token, setToken] = useState<string | null>(() => {
+    const saved = localStorage.getItem('tiki_token');
+    if (!saved || !isTokenValid(saved)) {
+      localStorage.removeItem('tiki_token');
+      localStorage.removeItem('tiki_profile');
+      return null;
+    }
+    return saved;
+  });
+
+  const [profile, setProfile] = useState<UserProfile | null>(() => {
+    const savedToken = localStorage.getItem('tiki_token');
+    if (!savedToken || !isTokenValid(savedToken)) {
+      return null;
+    }
+    const savedProfile = localStorage.getItem('tiki_profile');
+    return savedProfile ? JSON.parse(savedProfile) : null;
+  });
+
+  const logout = () => {
+    googleLogout();
+    setToken(null);
+    setProfile(null);
+    localStorage.removeItem('tiki_token');
+    localStorage.removeItem('tiki_profile');
+  };
+
+  // Verificar periodicamente e quando a janela ganha foco se o token expirou
+  useEffect(() => {
+    const verifyToken = () => {
+      if (token && !isTokenValid(token)) {
+        logout();
+      }
+    };
+
+    const interval = setInterval(verifyToken, 30000);
+    window.addEventListener('focus', verifyToken);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', verifyToken);
+    };
+  }, [token]);
 
   const login = async (credential: string) => {
-    // Decode locally to show UI immediately
     const decoded: any = jwtDecode(credential);
     const userProfile = {
       email: decoded.email,
@@ -43,16 +96,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('tiki_token', credential);
     localStorage.setItem('tiki_profile', JSON.stringify(userProfile));
 
-    // Register/update user in GAS
+    // Registo ou atualização de perfil no Apps Script
     await registerUser(credential);
-  };
-
-  const logout = () => {
-    googleLogout();
-    setToken(null);
-    setProfile(null);
-    localStorage.removeItem('tiki_token');
-    localStorage.removeItem('tiki_profile');
   };
 
   return (
@@ -63,3 +108,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+

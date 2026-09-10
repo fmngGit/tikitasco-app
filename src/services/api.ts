@@ -113,6 +113,10 @@ export const registerUser = async (token: string): Promise<boolean> => {
 
 // Criação de jogador convidado / fantasma
 export const createGuestPlayer = async (token: string, name: string): Promise<{ success: boolean, user?: UserStats, error?: string }> => {
+  if (!token) {
+    return { success: false, error: 'Precisas de iniciar sessão com a conta Google para adicionar convidados.' };
+  }
+
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
       const mockGuest: UserStats = {
@@ -142,8 +146,27 @@ export const createGuestPlayer = async (token: string, name: string): Promise<{ 
       method: 'POST',
       body: JSON.stringify({ action: 'create_guest', token, name })
     });
-    const data = await res.json();
-    if (data.success) invalidateCache();
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        error: text.includes('drive-logo') || text.includes('<!DOCTYPE')
+          ? 'O Google Apps Script não respondeu com JSON. Verifica a implementação no Apps Script.'
+          : 'Resposta inesperada do servidor ao criar convidado.'
+      };
+    }
+
+    if (data.success) {
+      invalidateCache();
+      // Adicionar imediatamente ao cache local se disponível
+      if (data.user && usersCache) {
+        usersCache.push(data.user);
+      }
+    }
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -152,6 +175,10 @@ export const createGuestPlayer = async (token: string, name: string): Promise<{ 
 
 // Reivindicar jogador fantasma quando o utilizador entra com a conta Google real
 export const claimGhostPlayer = async (token: string, ghostEmail: string): Promise<{ success: boolean, message?: string, error?: string }> => {
+  if (!token) {
+    return { success: false, error: 'Precisas de iniciar sessão com a conta Google.' };
+  }
+
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
       return { success: true, message: "Perfil de convidado associado (Modo Mock)" };
@@ -161,7 +188,15 @@ export const claimGhostPlayer = async (token: string, ghostEmail: string): Promi
       method: 'POST',
       body: JSON.stringify({ action: 'claim_ghost_player', token, ghostEmail })
     });
-    const data = await res.json();
+    
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return { success: false, error: 'Resposta inesperada do servidor ao associar perfil.' };
+    }
+
     if (data.success) invalidateCache();
     return data;
   } catch (err: any) {
