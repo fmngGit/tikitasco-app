@@ -60,9 +60,15 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
         )}
       </div>
 
-      <h3 style={{ fontSize: '1.2rem', margin: '0 0 1rem 0', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+      <h3 style={{ fontSize: '1.2rem', margin: '0 0 0.25rem 0', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
         {player.Nome.split(' ')[0]}
       </h3>
+      {player.IsGuest && (
+        <span style={{ fontSize: '0.7rem', color: 'var(--warning)', background: 'rgba(234, 179, 8, 0.15)', padding: '2px 6px', borderRadius: '8px', marginBottom: '0.75rem', fontWeight: 600 }}>
+          👻 Convidado
+        </span>
+      )}
+      {!player.IsGuest && <div style={{ marginBottom: '0.75rem' }} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%', gap: '0.5rem', fontSize: '0.85rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>

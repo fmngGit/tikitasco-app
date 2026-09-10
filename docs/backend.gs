@@ -5,7 +5,7 @@ function getSpreadsheet() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
-// Configuração Inicial - Executa isto no Editor do Apps Script apenas uma vez
+// Configuração Inicial e Migração de Colunas (Executar se necessário)
 function setupSheets() {
   const ss = getSpreadsheet();
   
@@ -14,17 +14,34 @@ function setupSheets() {
     if (!sheet) {
       sheet = ss.insertSheet(name);
       sheet.appendRow(headers);
-      
-      // Congelar a primeira linha (cabeçalho)
       sheet.setFrozenRows(1);
-      // Estilizar o cabeçalho
       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#d9d9d9");
+    } else {
+      // Assegurar cabeçalhos atualizados sem apagar dados existentes
+      const currentHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn() || 1).getValues()[0];
+      if (currentHeaders.length < headers.length) {
+        for (let i = currentHeaders.length; i < headers.length; i++) {
+          sheet.getRange(1, i + 1).setValue(headers[i]).setFontWeight("bold").setBackground("#d9d9d9");
+        }
+      }
     }
   };
 
-  setupSheet("Users", ["Nome", "Email", "Vitorias", "Empates", "Derrotas", "Pontos_Totais", "Jogos_Jogados", "Avatar"]);
+  setupSheet("Users", ["Nome", "Email", "Vitorias", "Empates", "Derrotas", "Pontos_Totais", "Jogos_Jogados", "Avatar", "IsGuest", "CreatedBy"]);
   setupSheet("Votes", ["Voter_Email", "Target_Email", "Ataque", "Defesa", "Fisico", "Passe", "Timestamp", "Guarda_Redes", "Fairplay"]);
-  setupSheet("Games", ["GameID", "Data", "Resultado_A", "Resultado_B", "Equipa_A", "Equipa_B"]);
+  setupSheet("Games", ["GameID", "Data", "Resultado_A", "Resultado_B", "Equipa_A", "Equipa_B", "SessionID", "SessionType", "VideoFileId", "VideoDownloadUrl", "VideoExpiryDate", "RoundNumber"]);
+}
+
+// Obter ou criar a pasta no Google Drive do administrador
+function getOrCreateVideoFolder() {
+  const folderName = "TikiTasco_Videos";
+  const folders = DriveApp.getFoldersByName(folderName);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  const folder = DriveApp.createFolder(folderName);
+  folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return folder;
 }
 
 // Validação do Token do Google Identity Services
@@ -35,29 +52,18 @@ function validateToken(token) {
     const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
     const json = JSON.parse(response.getContentText());
     if (json.email) {
-      return json; // Retorna email, name, picture
+      return json;
     }
   } catch (e) {
-    // Logger silencioso para não expor a estrutura do token ou falhas criptográficas
     return null;
   }
   return null;
 }
 
-// Endpoint POST - Recebe dados do frontend
+// Endpoint POST - Recebe ações do frontend
 function doPost(e) {
-  // Lidar com pedidos em modo 'text/plain' para evitar problemas de CORS no frontend
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-
-  // Configuração do LockService para prevenir problemas de concorrência (múltiplos acessos ao mesmo tempo)
   const lock = LockService.getScriptLock();
-  
   try {
-    // Tenta obter o bloqueio por até 10 segundos
     lock.waitLock(10000);
   } catch (e) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Servidor ocupado com demasiados pedidos. Tenta novamente em segundos." }))
@@ -69,7 +75,7 @@ function doPost(e) {
     const action = params.action;
     const token = params.token;
     
-    // Validar quem faz o pedido
+    // Validar utilizador
     const userInfo = validateToken(token);
     if (!userInfo || !userInfo.email) {
       lock.releaseLock();
@@ -83,8 +89,24 @@ function doPost(e) {
        const result = registerUser(userEmail, userInfo.name, userInfo.picture);
        lock.releaseLock();
        return result;
+    } else if (action === "create_guest") {
+       const result = createGuestPlayer(params.name, userEmail);
+       lock.releaseLock();
+       return result;
+    } else if (action === "claim_ghost_player") {
+       const result = claimGhostPlayer(userEmail, userInfo.name, userInfo.picture, params.ghostEmail);
+       lock.releaseLock();
+       return result;
+    } else if (action === "initiate_video_upload") {
+       const result = initiateVideoUpload(params);
+       lock.releaseLock();
+       return result;
+    } else if (action === "finalize_video_upload") {
+       const result = finalizeVideoUpload(params.fileId);
+       lock.releaseLock();
+       return result;
     } else if (action === "vote") {
-       if(params.data.targetEmail === userEmail) {
+       if (params.data.targetEmail === userEmail) {
           lock.releaseLock();
           return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Regra de Segurança: Não podes votar em ti próprio." }))
              .setMimeType(ContentService.MimeType.JSON);
@@ -98,6 +120,10 @@ function doPost(e) {
        return result;
     } else if (action === "register_game") {
        const result = registerGame(params);
+       lock.releaseLock();
+       return result;
+    } else if (action === "register_session") {
+       const result = registerSession(params);
        lock.releaseLock();
        return result;
     } else if (action === "edit_game") {
@@ -115,7 +141,7 @@ function doPost(e) {
     }
     
     lock.releaseLock();
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Unknown action" }))
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Unknown action: " + action }))
       .setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
@@ -125,7 +151,7 @@ function doPost(e) {
   }
 }
 
-// Endpoint GET - Lê dados (para a tabela e perfil)
+// Endpoint GET - Lê dados para tabela, histórico e perfis
 function doGet(e) {
   try {
     const action = e.parameter.action;
@@ -146,27 +172,27 @@ function doGet(e) {
           for(let j=0; j<headers.length; j++) {
              user[headers[j]] = data[i][j];
           }
+          user.IsGuest = (user.IsGuest === true || String(user.IsGuest).toUpperCase() === "TRUE" || (user.Email && user.Email.startsWith("guest_")));
           users.push(user);
        }
        
-       // Ler todos os votos para calcular a média de cada jogador
+       // Ler votos para calcular médias
        const votesSheet = getSpreadsheet().getSheetByName("Votes");
        const votesData = votesSheet.getDataRange().getValues();
        
-       // Calcular médias
        users.forEach(u => {
           let count = 0; let atq = 0; let def = 0; let fis = 0; let pas = 0; let gr = 0; let fp = 0;
           for(let v=1; v<votesData.length; v++) {
-             if(votesData[v][1] === u.Email) { // Target_Email está no index 1
+             if(votesData[v][1] === u.Email) {
                 count++;
                 atq += Number(votesData[v][2]);
                 def += Number(votesData[v][3]);
                 fis += Number(votesData[v][4]);
                 pas += Number(votesData[v][5]);
                 let grVal = Number(votesData[v][7]);
-                gr += (isNaN(grVal) || grVal === 0) ? 50 : grVal; // Votos antigos sem GR ficam com base de 50
+                gr += (isNaN(grVal) || grVal === 0) ? 50 : grVal;
                 let fpVal = Number(votesData[v][8]);
-                fp += (isNaN(fpVal) || fpVal === 0) ? 50 : fpVal; // Votos antigos sem FP ficam com base de 50
+                fp += (isNaN(fpVal) || fpVal === 0) ? 50 : fpVal;
              }
           }
           if(count > 0) {
@@ -189,6 +215,9 @@ function doGet(e) {
     }
     
     if (action === "get_games") {
+       // Executa limpeza automática de vídeos com mais de 30 dias
+       try { cleanupExpiredVideos(); } catch(e) {}
+
        const sheet = getSpreadsheet().getSheetByName("Games");
        const data = sheet.getDataRange().getValues();
        
@@ -225,13 +254,227 @@ function doGet(e) {
   }
 }
 
+// Iniciar sessão de upload resumable diretamente no Google Drive
+function initiateVideoUpload(params) {
+  try {
+    const folder = getOrCreateVideoFolder();
+    const folderId = folder.getId();
+    const fileName = (params.fileName || "Jogo_TikiTasco_" + new Date().getTime() + ".mp4");
+    const mimeType = params.mimeType || "video/mp4";
+    const fileSize = params.fileSize;
+
+    const metadata = {
+      name: fileName,
+      parents: [folderId]
+    };
+
+    const token = ScriptApp.getOAuthToken();
+    const url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable";
+    
+    const options = {
+      method: "POST",
+      contentType: "application/json; charset=UTF-8",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "X-Upload-Content-Type": mimeType,
+        "X-Upload-Content-Length": String(fileSize)
+      },
+      payload: JSON.stringify(metadata),
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(url, options);
+    const headers = response.getAllHeaders();
+    const uploadUrl = headers["Location"] || headers["location"];
+
+    if (!uploadUrl) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: false, 
+        error: "Não foi possível obter URL de upload do Google Drive: " + response.getContentText() 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: true, 
+      uploadUrl: uploadUrl 
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch(e) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: e.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// Finalizar upload: ativa partilha pública para leitura e devolve links
+function finalizeVideoUpload(fileId) {
+  try {
+    const file = DriveApp.getFileById(fileId);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const downloadUrl = file.getDownloadUrl() || file.getUrl();
+    const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 dias
+    
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: true, 
+      fileId: fileId, 
+      downloadUrl: downloadUrl,
+      expiryDate: expiryDate
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch(e) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: e.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// Limpeza automática de vídeos após 30 dias
+function cleanupExpiredVideos() {
+  const sheet = getSpreadsheet().getSheetByName("Games");
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return 0;
+  
+  const headers = data[0];
+  const fileIdIndex = headers.indexOf("VideoFileId");
+  const expiryIndex = headers.indexOf("VideoExpiryDate");
+  const urlIndex = headers.indexOf("VideoDownloadUrl");
+  
+  if (fileIdIndex === -1 || expiryIndex === -1) return 0;
+  
+  const now = new Date();
+  let cleanedCount = 0;
+  
+  for (let i = 1; i < data.length; i++) {
+    const fileId = data[i][fileIdIndex];
+    const expiryStr = data[i][expiryIndex];
+    
+    if (fileId && expiryStr) {
+      const expiryDate = new Date(expiryStr);
+      if (now > expiryDate) {
+        try {
+          DriveApp.getFileById(fileId).setTrashed(true);
+        } catch(err) {}
+        sheet.getRange(i + 1, fileIdIndex + 1).setValue("");
+        if (urlIndex !== -1) {
+          sheet.getRange(i + 1, urlIndex + 1).setValue("EXPIRED");
+        }
+        cleanedCount++;
+      }
+    }
+  }
+  return cleanedCount;
+}
+
+// Criar jogador convidado/fantasma
+function createGuestPlayer(name, creatorEmail) {
+  if (!name || name.trim() === "") {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Nome inválido." }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const sheet = getSpreadsheet().getSheetByName("Users");
+  const guestEmail = "guest_" + Utilities.getUuid().substring(0, 8) + "@convidado.tikitasco";
+  
+  // Nome, Email, V, E, D, Pts, Jogos, Avatar, IsGuest, CreatedBy
+  sheet.appendRow([name.trim(), guestEmail, 0, 0, 0, 0, 0, "", true, creatorEmail || ""]);
+  
+  return ContentService.createTextOutput(JSON.stringify({ 
+    success: true, 
+    user: {
+      Nome: name.trim(),
+      Email: guestEmail,
+      Vitorias: 0,
+      Empates: 0,
+      Derrotas: 0,
+      Pontos_Totais: 0,
+      Jogos_Jogados: 0,
+      Avatar: "",
+      IsGuest: true
+    }
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Reivindicar perfil de convidado: funde todo o histórico com a conta Google real
+function claimGhostPlayer(realEmail, realName, realPicture, ghostEmail) {
+  if (!ghostEmail || !ghostEmail.startsWith("guest_")) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Email de convidado inválido." }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const ss = getSpreadsheet();
+  const usersSheet = ss.getSheetByName("Users");
+  const gamesSheet = ss.getSheetByName("Games");
+  const votesSheet = ss.getSheetByName("Votes");
+  
+  // 1. Atualizar jogos na folha Games
+  const gamesData = gamesSheet.getDataRange().getValues();
+  for (let g = 1; g < gamesData.length; g++) {
+    let modified = false;
+    let eqA = []; let eqB = [];
+    try { eqA = JSON.parse(gamesData[g][4]); } catch(e){}
+    try { eqB = JSON.parse(gamesData[g][5]); } catch(e){}
+    
+    if (eqA.includes(ghostEmail)) {
+      eqA = eqA.map(e => e === ghostEmail ? realEmail : e);
+      modified = true;
+    }
+    if (eqB.includes(ghostEmail)) {
+      eqB = eqB.map(e => e === ghostEmail ? realEmail : e);
+      modified = true;
+    }
+    
+    if (modified) {
+      gamesSheet.getRange(g + 1, 5).setValue(JSON.stringify(eqA));
+      gamesSheet.getRange(g + 1, 6).setValue(JSON.stringify(eqB));
+    }
+  }
+  
+  // 2. Atualizar votos na folha Votes
+  const votesData = votesSheet.getDataRange().getValues();
+  for (let v = 1; v < votesData.length; v++) {
+    if (votesData[v][0] === ghostEmail) {
+      votesSheet.getRange(v + 1, 1).setValue(realEmail);
+    }
+    if (votesData[v][1] === ghostEmail) {
+      votesSheet.getRange(v + 1, 2).setValue(realEmail);
+    }
+  }
+  
+  // 3. Assegurar que o utilizador real existe na folha Users e remover o fantasma
+  const usersData = usersSheet.getDataRange().getValues();
+  let ghostRow = -1;
+  let realUserRow = -1;
+  
+  for (let u = 1; u < usersData.length; u++) {
+    if (usersData[u][1] === ghostEmail) {
+      ghostRow = u + 1;
+    }
+    if (usersData[u][1] === realEmail) {
+      realUserRow = u + 1;
+    }
+  }
+  
+  if (ghostRow !== -1) {
+    usersSheet.deleteRow(ghostRow);
+  }
+  
+  // Se o utilizador real ainda não existia, cria-o
+  if (realUserRow === -1) {
+    usersSheet.appendRow([realName || "Jogador", realEmail, 0, 0, 0, 0, 0, realPicture || "", false, ""]);
+  }
+  
+  // 4. Recalcular todas as estatísticas para sincronizar tudo
+  recalculateAllUserStats();
+  
+  return ContentService.createTextOutput(JSON.stringify({ 
+    success: true, 
+    message: "Perfil de convidado reivindicado com sucesso! Todo o teu histórico foi transferido." 
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
 function registerUser(email, name, picture) {
    const sheet = getSpreadsheet().getSheetByName("Users");
    const data = sheet.getDataRange().getValues();
    for (let i = 1; i < data.length; i++) {
-     if (data[i][1] === email) { // Verifica se já existe
+     if (data[i][1] === email) {
        const currentAvatar = data[i][7];
-       // Só atualiza a foto se a atual for do Google ou estiver vazia
        if (!currentAvatar || currentAvatar.includes("googleusercontent.com")) {
            if (currentAvatar !== picture) {
                sheet.getRange(i+1, 8).setValue(picture || "");
@@ -241,8 +484,8 @@ function registerUser(email, name, picture) {
          .setMimeType(ContentService.MimeType.JSON);
      }
    }
-   // Add new user: Nome, Email, Vitorias, Empates, Derrotas, Pontos, Jogos, Avatar
-   sheet.appendRow([name, email, 0, 0, 0, 0, 0, picture || ""]);
+   // Add new user
+   sheet.appendRow([name, email, 0, 0, 0, 0, 0, picture || "", false, ""]);
    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "User created" }))
      .setMimeType(ContentService.MimeType.JSON);
 }
@@ -265,10 +508,8 @@ function registerVote(voterEmail, data) {
     const sheet = getSpreadsheet().getSheetByName("Votes");
     const rows = sheet.getDataRange().getValues();
     
-    // Verificar se o utilizador já votou nesta pessoa
     for (let i = 1; i < rows.length; i++) {
        if (rows[i][0] === voterEmail && rows[i][1] === data.targetEmail) {
-          // Atualiza o voto existente
           sheet.getRange(i + 1, 3).setValue(data.ataque);
           sheet.getRange(i + 1, 4).setValue(data.defesa);
           sheet.getRange(i + 1, 5).setValue(data.fisico);
@@ -282,7 +523,6 @@ function registerVote(voterEmail, data) {
        }
     }
     
-    // Se não encontrou, regista um novo
     sheet.appendRow([voterEmail, data.targetEmail, data.ataque, data.defesa, data.fisico, data.passe, new Date().toISOString(), data.guardaRedes, data.fairplay]);
     return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Voto registado com sucesso!" }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -310,21 +550,73 @@ function getMyVotes(email) {
       .setMimeType(ContentService.MimeType.JSON);
 }
 
+// Registo de jogo único padrão
 function registerGame(params) {
     const sheet = getSpreadsheet().getSheetByName("Games");
     const gameId = Utilities.getUuid();
     
-    const eqA = JSON.stringify(params.equipaA);
-    const eqB = JSON.stringify(params.equipaB);
+    const eqA = JSON.stringify(params.equipaA || []);
+    const eqB = JSON.stringify(params.equipaB || []);
     const gameDate = params.date ? new Date(params.date).toISOString() : new Date().toISOString();
+    const sessionId = params.sessionId || "";
+    const sessionType = params.sessionType || "standard";
+    const videoFileId = params.videoFileId || "";
+    const videoDownloadUrl = params.videoDownloadUrl || "";
+    const videoExpiryDate = params.videoExpiryDate || (videoFileId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : "");
+    const roundNumber = params.roundNumber || 1;
 
-    // Columns: GameID, Data, ResA, ResB, EquipaA, EquipaB
-    sheet.appendRow([gameId, gameDate, params.resA, params.resB, eqA, eqB]);
+    // Colunas: GameID, Data, ResA, ResB, EquipaA, EquipaB, SessionID, SessionType, VideoFileId, VideoDownloadUrl, VideoExpiryDate, RoundNumber
+    sheet.appendRow([gameId, gameDate, params.resA, params.resB, eqA, eqB, sessionId, sessionType, videoFileId, videoDownloadUrl, videoExpiryDate, roundNumber]);
     
     recalculateAllUserStats();
     
-    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Jogo registado e pontos atribuídos!" }))
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Jogo registado com sucesso!", gameId: gameId }))
       .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Registo de sessão multi-jogo (Rei da Pista ou Rotação Dinâmica)
+function registerSession(params) {
+    const sheet = getSpreadsheet().getSheetByName("Games");
+    const sessionId = Utilities.getUuid();
+    const sessionType = params.sessionType || "reidapista";
+    const gameDate = params.date ? new Date(params.date).toISOString() : new Date().toISOString();
+    const videoFileId = params.videoFileId || "";
+    const videoDownloadUrl = params.videoDownloadUrl || "";
+    const videoExpiryDate = params.videoExpiryDate || (videoFileId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : "");
+    const rounds = params.rounds || [];
+
+    if (rounds.length === 0) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Nenhuma ronda/jogo fornecido para a sessão." }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    rounds.forEach((round, idx) => {
+      const gameId = Utilities.getUuid();
+      const eqA = JSON.stringify(round.equipaA || []);
+      const eqB = JSON.stringify(round.equipaB || []);
+      sheet.appendRow([
+        gameId, 
+        gameDate, 
+        round.resA, 
+        round.resB, 
+        eqA, 
+        eqB, 
+        sessionId, 
+        sessionType, 
+        videoFileId, 
+        videoDownloadUrl, 
+        videoExpiryDate, 
+        idx + 1
+      ]);
+    });
+
+    recalculateAllUserStats();
+
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: true, 
+      message: "Sessão com " + rounds.length + " mini-jogos registada com sucesso!",
+      sessionId: sessionId
+    })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function editGame(params) {
@@ -351,6 +643,13 @@ function editGame(params) {
     sheet.getRange(rowIndex, 5).setValue(JSON.stringify(params.equipaA));
     sheet.getRange(rowIndex, 6).setValue(JSON.stringify(params.equipaB));
     
+    // Atualizar vídeo se fornecido
+    if (params.videoFileId !== undefined) {
+      sheet.getRange(rowIndex, 9).setValue(params.videoFileId);
+      sheet.getRange(rowIndex, 10).setValue(params.videoDownloadUrl || "");
+      sheet.getRange(rowIndex, 11).setValue(params.videoExpiryDate || "");
+    }
+    
     recalculateAllUserStats();
     
     return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Jogo atualizado com sucesso!" })).setMimeType(ContentService.MimeType.JSON);
@@ -362,9 +661,11 @@ function deleteGame(params) {
     const gameId = params.gameId;
     
     let rowIndex = -1;
+    let videoFileId = "";
     for (let i = 1; i < data.length; i++) {
         if (data[i][0] === gameId) {
             rowIndex = i + 1;
+            videoFileId = data[i][8] || "";
             break;
         }
     }
@@ -373,12 +674,18 @@ function deleteGame(params) {
        return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Jogo não encontrado!" })).setMimeType(ContentService.MimeType.JSON);
     }
     
+    // Apagar vídeo associado da Drive se existir para libertar espaço
+    if (videoFileId) {
+      try { DriveApp.getFileById(videoFileId).setTrashed(true); } catch(e) {}
+    }
+
     sheet.deleteRow(rowIndex);
     recalculateAllUserStats();
     
     return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Jogo apagado com sucesso!" })).setMimeType(ContentService.MimeType.JSON);
 }
 
+// Otimizado: Recálculo em lote usando setValues (5x a 10x mais rápido)
 function recalculateAllUserStats() {
     const usersSheet = getSpreadsheet().getSheetByName("Users");
     const gamesSheet = getSpreadsheet().getSheetByName("Games");
@@ -386,9 +693,11 @@ function recalculateAllUserStats() {
     const usersData = usersSheet.getDataRange().getValues();
     const gamesData = gamesSheet.getDataRange().getValues();
     
+    if (usersData.length <= 1) return;
+
     let userStats = {};
     for (let i = 1; i < usersData.length; i++) {
-        userStats[usersData[i][1]] = { vitorias: 0, empates: 0, derrotas: 0, pontos: 0, jogos: 0, rowIndex: i + 1 };
+        userStats[usersData[i][1]] = { vitorias: 0, empates: 0, derrotas: 0, pontos: 0, jogos: 0, index: i - 1 };
     }
     
     for (let g = 1; g < gamesData.length; g++) {
@@ -405,24 +714,33 @@ function recalculateAllUserStats() {
         
         equipaA.forEach(email => {
             if (userStats[email]) {
-                userStats[email].vitorias += winA; userStats[email].empates += draw; userStats[email].derrotas += lossA;
-                userStats[email].pontos += ptsA; userStats[email].jogos += 1;
+                userStats[email].vitorias += winA; 
+                userStats[email].empates += draw; 
+                userStats[email].derrotas += lossA;
+                userStats[email].pontos += ptsA; 
+                userStats[email].jogos += 1;
             }
         });
         equipaB.forEach(email => {
             if (userStats[email]) {
-                userStats[email].vitorias += winB; userStats[email].empates += draw; userStats[email].derrotas += lossB;
-                userStats[email].pontos += ptsB; userStats[email].jogos += 1;
+                userStats[email].vitorias += winB; 
+                userStats[email].empates += draw; 
+                userStats[email].derrotas += lossB;
+                userStats[email].pontos += ptsB; 
+                userStats[email].jogos += 1;
             }
         });
     }
     
-    for (let email in userStats) {
-        const stats = userStats[email];
-        usersSheet.getRange(stats.rowIndex, 3).setValue(stats.vitorias);
-        usersSheet.getRange(stats.rowIndex, 4).setValue(stats.empates);
-        usersSheet.getRange(stats.rowIndex, 5).setValue(stats.derrotas);
-        usersSheet.getRange(stats.rowIndex, 6).setValue(stats.pontos);
-        usersSheet.getRange(stats.rowIndex, 7).setValue(stats.jogos);
+    // Preparar matriz em lote para as colunas: Vitorias, Empates, Derrotas, Pontos_Totais, Jogos_Jogados
+    const updateMatrix = [];
+    for (let i = 1; i < usersData.length; i++) {
+        const email = usersData[i][1];
+        const s = userStats[email] || { vitorias: 0, empates: 0, derrotas: 0, pontos: 0, jogos: 0 };
+        updateMatrix.push([s.vitorias, s.empates, s.derrotas, s.pontos, s.jogos]);
+    }
+
+    if (updateMatrix.length > 0) {
+      usersSheet.getRange(2, 3, updateMatrix.length, 5).setValues(updateMatrix);
     }
 }

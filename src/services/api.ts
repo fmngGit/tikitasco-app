@@ -17,6 +17,8 @@ export interface UserStats {
   Fairplay: number;
   Overall: number;
   TotalVotos: number;
+  IsGuest?: boolean;
+  CreatedBy?: string;
 }
 
 export interface GameStats {
@@ -26,42 +28,225 @@ export interface GameStats {
   Resultado_B: number;
   Equipa_A: string[];
   Equipa_B: string[];
+  SessionID?: string;
+  SessionType?: 'standard' | 'reidapista' | 'rotacao_dinamica';
+  VideoFileId?: string;
+  VideoDownloadUrl?: string;
+  VideoExpiryDate?: string;
+  RoundNumber?: number;
 }
 
-export const fetchUsers = async (): Promise<UserStats[]> => {
+export interface SessionRound {
+  resA: number;
+  resB: number;
+  equipaA: string[];
+  equipaB: string[];
+  roundNumber?: number;
+}
+
+// In-memory cache com invalidação inteligente para navegação rápida
+let usersCache: UserStats[] | null = null;
+let gamesCache: GameStats[] | null = null;
+let lastUsersFetch = 0;
+let lastGamesFetch = 0;
+const CACHE_TTL = 30000; // 30 segundos
+
+export const invalidateCache = () => {
+  usersCache = null;
+  gamesCache = null;
+};
+
+export const fetchUsers = async (forceRefresh = false): Promise<UserStats[]> => {
+  const now = Date.now();
+  if (!forceRefresh && usersCache && now - lastUsersFetch < CACHE_TTL) {
+    return usersCache;
+  }
+
   if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-    console.warn("GAS_URL not configured. Returning mock data.");
+    usersCache = mockUsers;
     return mockUsers;
   }
   
   try {
     const res = await fetch(`${GAS_URL}?action=get_users`);
     const data = await res.json();
-    if (data.success) return data.data;
+    if (data.success) {
+      usersCache = data.data;
+      lastUsersFetch = now;
+      return data.data;
+    }
     throw new Error(data.error);
   } catch (error) {
-    // Erro silenciado para evitar exposição de dados sensíveis da rede
-    return [];
+    return usersCache || [];
   }
 };
 
-export const fetchGames = async (): Promise<GameStats[]> => {
+export const fetchGames = async (forceRefresh = false): Promise<GameStats[]> => {
+  const now = Date.now();
+  if (!forceRefresh && gamesCache && now - lastGamesFetch < CACHE_TTL) {
+    return gamesCache;
+  }
+
   if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+    gamesCache = mockGames;
     return mockGames;
   }
   
   try {
     const res = await fetch(`${GAS_URL}?action=get_games`);
     const data = await res.json();
-    if (data.success) return data.data;
+    if (data.success) {
+      gamesCache = data.data;
+      lastGamesFetch = now;
+      return data.data;
+    }
     throw new Error(data.error);
   } catch (error) {
-    return [];
+    return gamesCache || [];
   }
 };
 
 export const registerUser = async (token: string): Promise<boolean> => {
+  invalidateCache();
   return sendPostRequest({ action: 'register_user', token });
+};
+
+// Criação de jogador convidado / fantasma
+export const createGuestPlayer = async (token: string, name: string): Promise<{ success: boolean, user?: UserStats, error?: string }> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      const mockGuest: UserStats = {
+        Nome: name,
+        Email: `guest_${Date.now()}@convidado.tikitasco`,
+        Vitorias: 0,
+        Empates: 0,
+        Derrotas: 0,
+        Pontos_Totais: 0,
+        Jogos_Jogados: 0,
+        Avatar: '',
+        Ataque: 50,
+        Defesa: 50,
+        Fisico: 50,
+        Passe: 50,
+        Guarda_Redes: 50,
+        Fairplay: 50,
+        Overall: 50,
+        TotalVotos: 0,
+        IsGuest: true
+      };
+      if (usersCache) usersCache.push(mockGuest);
+      return { success: true, user: mockGuest };
+    }
+
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'create_guest', token, name })
+    });
+    const data = await res.json();
+    if (data.success) invalidateCache();
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
+// Reivindicar jogador fantasma quando o utilizador entra com a conta Google real
+export const claimGhostPlayer = async (token: string, ghostEmail: string): Promise<{ success: boolean, message?: string, error?: string }> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      return { success: true, message: "Perfil de convidado associado (Modo Mock)" };
+    }
+
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'claim_ghost_player', token, ghostEmail })
+    });
+    const data = await res.json();
+    if (data.success) invalidateCache();
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
+// Upload de Vídeo direto para Google Drive usando Resumable Upload
+export const initiateVideoUpload = async (token: string, fileName: string, fileSize: number, mimeType: string): Promise<{ success: boolean, uploadUrl?: string, error?: string }> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      return { success: false, error: "Servidor não configurado para upload direto." };
+    }
+
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'initiate_video_upload',
+        token,
+        fileName,
+        fileSize,
+        mimeType
+      })
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
+export const finalizeVideoUpload = async (token: string, fileId: string): Promise<{ success: boolean, fileId?: string, downloadUrl?: string, expiryDate?: string, error?: string }> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      return { success: true, fileId, downloadUrl: 'mock-url', expiryDate: new Date(Date.now() + 30*86400000).toISOString() };
+    }
+
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'finalize_video_upload', token, fileId })
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
+// Envio em stream do ficheiro para a Google Drive com callback de progresso
+export const uploadVideoToDrive = (
+  file: File, 
+  uploadUrl: string, 
+  onProgress?: (percent: number) => void
+): Promise<{ success: boolean, fileId?: string, error?: string }> => {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+
+    if (xhr.upload && onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          onProgress(percent);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status === 200 || xhr.status === 201) {
+        try {
+          const res = JSON.parse(xhr.responseText);
+          resolve({ success: true, fileId: res.id });
+        } catch {
+          resolve({ success: true });
+        }
+      } else {
+        resolve({ success: false, error: `Erro no upload do Google Drive (${xhr.status})` });
+      }
+    };
+
+    xhr.onerror = () => {
+      resolve({ success: false, error: 'Erro de rede durante o upload do vídeo.' });
+    };
+
+    xhr.send(file);
+  });
 };
 
 export const fetchMyVotes = async (token: string): Promise<Record<string, { ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number, fairplay: number }>> => {
@@ -82,22 +267,37 @@ export const fetchMyVotes = async (token: string): Promise<Record<string, { ataq
 export const votePlayer = async (token: string, targetEmail: string, ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number, fairplay: number): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      invalidateCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'vote', token, data: { targetEmail, ataque, defesa, fisico, passe, guardaRedes, fairplay } })
     });
-    return await res.json();
+    const data = await res.json();
+    if (data.success) invalidateCache();
+    return data;
   } catch (err: any) {
     return { success: false, error: 'Erro de conexão ao servidor.' };
   }
 };
 
-export const registerGame = async (token: string, gameDate: string, resA: number, resB: number, equipaA: string[], equipaB: string[]): Promise<{success: boolean, error?: string}> => {
+export const registerGame = async (
+  token: string, 
+  gameDate: string, 
+  resA: number, 
+  resB: number, 
+  equipaA: string[], 
+  equipaB: string[],
+  videoData?: { fileId?: string, downloadUrl?: string, expiryDate?: string },
+  sessionId?: string,
+  sessionType?: 'standard' | 'reidapista' | 'rotacao_dinamica',
+  roundNumber?: number
+): Promise<{success: boolean, gameId?: string, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      return { success: true };
+      invalidateCache();
+      return { success: true, gameId: 'mock-id' };
     }
     const res = await fetch(GAS_URL, {
       method: 'POST',
@@ -108,19 +308,68 @@ export const registerGame = async (token: string, gameDate: string, resA: number
         resA,
         resB,
         equipaA,
-        equipaB
+        equipaB,
+        sessionId: sessionId || '',
+        sessionType: sessionType || 'standard',
+        videoFileId: videoData?.fileId || '',
+        videoDownloadUrl: videoData?.downloadUrl || '',
+        videoExpiryDate: videoData?.expiryDate || '',
+        roundNumber: roundNumber || 1
       })
     });
     const data = await res.json();
+    if (data.success) invalidateCache();
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
   }
 };
 
-export const editGame = async (token: string, gameId: string, gameDate: string, resA: number, resB: number, equipaA: string[], equipaB: string[]): Promise<{success: boolean, error?: string}> => {
+export const registerSession = async (
+  token: string,
+  sessionData: {
+    date: string;
+    sessionType: 'standard' | 'reidapista' | 'rotacao_dinamica';
+    rounds: SessionRound[];
+    videoFileId?: string;
+    videoDownloadUrl?: string;
+    videoExpiryDate?: string;
+  }
+): Promise<{ success: boolean, sessionId?: string, error?: string }> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      invalidateCache();
+      return { success: true, sessionId: 'mock-session-id' };
+    }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'register_session',
+        token,
+        ...sessionData
+      })
+    });
+    const data = await res.json();
+    if (data.success) invalidateCache();
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
+export const editGame = async (
+  token: string, 
+  gameId: string, 
+  gameDate: string, 
+  resA: number, 
+  resB: number, 
+  equipaA: string[], 
+  equipaB: string[],
+  videoData?: { fileId?: string, downloadUrl?: string, expiryDate?: string }
+): Promise<{success: boolean, error?: string}> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      invalidateCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
@@ -133,10 +382,14 @@ export const editGame = async (token: string, gameId: string, gameDate: string, 
         resA,
         resB,
         equipaA,
-        equipaB
+        equipaB,
+        videoFileId: videoData?.fileId,
+        videoDownloadUrl: videoData?.downloadUrl,
+        videoExpiryDate: videoData?.expiryDate
       })
     });
     const data = await res.json();
+    if (data.success) invalidateCache();
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -146,6 +399,7 @@ export const editGame = async (token: string, gameId: string, gameDate: string, 
 export const deleteGame = async (token: string, gameId: string): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      invalidateCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
@@ -157,6 +411,7 @@ export const deleteGame = async (token: string, gameId: string): Promise<{succes
       })
     });
     const data = await res.json();
+    if (data.success) invalidateCache();
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -166,6 +421,7 @@ export const deleteGame = async (token: string, gameId: string): Promise<{succes
 export const updateAvatar = async (token: string, base64: string): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      invalidateCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
@@ -176,7 +432,9 @@ export const updateAvatar = async (token: string, base64: string): Promise<{succ
         base64
       })
     });
-    return await res.json();
+    const data = await res.json();
+    if (data.success) invalidateCache();
+    return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
   }
@@ -192,20 +450,19 @@ const sendPostRequest = async (payload: any): Promise<boolean> => {
     const data = await res.json();
     return data.success;
   } catch (e) {
-    // Erro silenciado para evitar exposição de payload
     return false;
   }
-}
+};
 
-// Mock Data for testing UI without backend
+// Mock Data for offline testing
 const mockUsers: UserStats[] = [
-  { Nome: "Fernando Goncalves", Email: "fmng2000@gmail.com", Vitorias: 0, Empates: 2, Derrotas: 0, Pontos_Totais: 2, Jogos_Jogados: 2, Avatar: "https://lh3.googleusercontent.com/a/ACg8ocLF6v_dDEa53R0V3N_MhGv27b13m5dZ5_hBwH_xS1p1HkGv1w=s96-c", Ataque: 50, Defesa: 50, Fisico: 50, Passe: 53, Guarda_Redes: 50, Fairplay: 50, Overall: 51, TotalVotos: 2 },
-  { Nome: "NEON", Email: "neonspaceyt@gmail.com", Vitorias: 0, Empates: 2, Derrotas: 0, Pontos_Totais: 2, Jogos_Jogados: 2, Avatar: "https://lh3.googleusercontent.com/a/ACg8ocL81bQ6J5zP8YhR-9jT5-z4XWk13B6wM4x_E_G3Z0W2T=s96-c", Ataque: 0, Defesa: 0, Fisico: 0, Passe: 0, Guarda_Redes: 0, Fairplay: 0, Overall: 0, TotalVotos: 0 },
-  { Nome: "João Silva", Email: "joao@example.com", Vitorias: 5, Empates: 1, Derrotas: 2, Pontos_Totais: 16, Jogos_Jogados: 8, Avatar: "", Ataque: 85, Defesa: 60, Fisico: 75, Passe: 80, Guarda_Redes: 50, Fairplay: 85, Overall: 75, TotalVotos: 4 },
-  { Nome: "Carlos Costa", Email: "carlos@example.com", Vitorias: 3, Empates: 3, Derrotas: 2, Pontos_Totais: 12, Jogos_Jogados: 8, Avatar: "", Ataque: 70, Defesa: 88, Fisico: 85, Passe: 70, Guarda_Redes: 50, Fairplay: 90, Overall: 78, TotalVotos: 3 },
+  { Nome: "Fernando Goncalves", Email: "fmng2000@gmail.com", Vitorias: 4, Empates: 2, Derrotas: 1, Pontos_Totais: 14, Jogos_Jogados: 7, Avatar: "https://lh3.googleusercontent.com/a/ACg8ocLF6v_dDEa53R0V3N_MhGv27b13m5dZ5_hBwH_xS1p1HkGv1w=s96-c", Ataque: 82, Defesa: 74, Fisico: 79, Passe: 86, Guarda_Redes: 55, Fairplay: 90, Overall: 78, TotalVotos: 6 },
+  { Nome: "Carlos Costa", Email: "carlos@example.com", Vitorias: 3, Empates: 3, Derrotas: 2, Pontos_Totais: 12, Jogos_Jogados: 8, Avatar: "", Ataque: 70, Defesa: 88, Fisico: 85, Passe: 70, Guarda_Redes: 50, Fairplay: 90, Overall: 78, TotalVotos: 5 },
   { Nome: "Miguel Nunes", Email: "miguel@example.com", Vitorias: 6, Empates: 0, Derrotas: 2, Pontos_Totais: 18, Jogos_Jogados: 8, Avatar: "", Ataque: 92, Defesa: 40, Fisico: 70, Passe: 82, Guarda_Redes: 50, Fairplay: 70, Overall: 71, TotalVotos: 5 },
+  { Nome: "João Silva", Email: "joao@example.com", Vitorias: 5, Empates: 1, Derrotas: 2, Pontos_Totais: 16, Jogos_Jogados: 8, Avatar: "", Ataque: 85, Defesa: 60, Fisico: 75, Passe: 80, Guarda_Redes: 50, Fairplay: 85, Overall: 75, TotalVotos: 4 },
+  { Nome: "Rui Convidado", Email: "guest_123456@convidado.tikitasco", Vitorias: 1, Empates: 1, Derrotas: 0, Pontos_Totais: 4, Jogos_Jogados: 2, Avatar: "", Ataque: 68, Defesa: 65, Fisico: 72, Passe: 70, Guarda_Redes: 60, Fairplay: 80, Overall: 69, TotalVotos: 2, IsGuest: true },
 ];
 
 const mockGames: GameStats[] = [
-  { GameID: "1", Data: new Date().toISOString(), Resultado_A: 5, Resultado_B: 4, Equipa_A: ["joao@example.com"], Equipa_B: ["carlos@example.com", "miguel@example.com"] }
+  { GameID: "1", Data: new Date().toISOString(), Resultado_A: 5, Resultado_B: 4, Equipa_A: ["fmng2000@gmail.com", "joao@example.com"], Equipa_B: ["carlos@example.com", "miguel@example.com"], SessionType: "standard" }
 ];

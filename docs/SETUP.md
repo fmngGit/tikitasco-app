@@ -1,6 +1,6 @@
 # Guia de Configuração Técnica (Backend & Google Cloud)
 
-Bem-vindo ao TikiTasco! Para que tudo funcione de forma gratuita e no teu controlo total, terás de seguir 3 passos principais na tua conta Google. Demorará cerca de 5-10 minutos.
+Bem-vindo ao TikiTasco! Para que tudo funcione de forma gratuita e no teu controlo total, terás de seguir os passos na tua conta Google.
 
 ---
 
@@ -36,49 +36,52 @@ Para que os utilizadores possam fazer login, precisamos de um Client ID.
 2. Irá abrir uma nova janela. Apaga tudo o que lá estiver e **cola o código que fornecemos no ficheiro `backend.gs`** (dentro da pasta `docs`).
 3. No início do código, altera a variável `SPREADSHEET_ID` para o ID que copiaste no passo anterior.
 4. Grava (botão de disquete 💾).
-5. No menu superior da janela do Apps Script, seleciona a função **`setupSheets`** e clica em **"Executar"**. (Irá pedir autorizações na tua conta Google. Aceita os avisos de segurança carregando em "Avançado" -> "Ir para TikiTasco (não seguro)"). **Isto vai criar os separadores "Users", "Votes" e "Games" na tua folha.**
-6. Por fim, vamos publicar a API:
-   - Clica no botão azul no topo superior direito **"Implementar" (Deploy)** > **"Nova implementação"**.
-   - Clica na engrenagem ao lado de "Selecionar tipo" e escolhe **"Aplicação Web"**.
-   - Executar como: **"Eu"** (o teu email).
-   - Quem tem acesso: **"Qualquer pessoa"**.
-   - Clica em **"Implementar"**.
-7. Vai ser gerado um URL (do tipo `https://script.google.com/macros/s/.../exec`). **Copia este URL**. Vais colá-lo no ficheiro `.env` do frontend!
-
-🎉 **Feito!** O teu backend e base de dados estão operacionais. O resto do trabalho é feito no site (frontend)!
+5. No menu superior da janela do Apps Script, seleciona a função **`setupSheets`** e clica em **"Executar"**. (Irá pedir autorizações na tua conta Google, incluindo acesso ao Google Drive para gerir os vídeos dos jogos. Aceita os avisos carregando em "Avançado" -> "Ir para TikiTasco (não seguro)").
+   - **Nota:** A função `setupSheets()` é inteligente e aditiva: se já tiveres dados antigos, ela apenas adiciona as novas colunas necessárias sem apagar nada!
+6. **Publicar ou Atualizar a API:**
+   - **Se for a primeira vez:**
+     - Clica no botão azul no topo superior direito **"Implementar" (Deploy)** > **"Nova implementação"**.
+     - Clica na engrenagem ao lado de "Selecionar tipo" e escolhe **"Aplicação Web"**.
+     - Executar como: **"Eu"** (o teu email).
+     - Quem tem acesso: **"Qualquer pessoa"**.
+     - Clica em **"Implementar"** e copia o URL gerado para o teu ficheiro `.env`.
+   - **Se já tinhas a API publicada e estás a atualizar o código:**
+     - Clica em **"Implementar"** > **"Gerir implementações"**.
+     - Clica no ícone de lápis ✏️ (Editar).
+     - No campo "Versão", escolhe obrigatoriamente **"Nova versão"**!
+     - Clica em **"Implementar"**.
+7. **(Opcional mas Recomendado) Agendar Limpeza Automática dos Vídeos a 30 Dias:**
+   - Na barra lateral esquerda do Apps Script, clica no ícone de relógio ⏰ (**"Acionadores" / Triggers**).
+   - Clica em **"+ Adicionar acionador"** no canto inferior direito.
+   - Escolhe a função: **`cleanupExpiredVideos`**.
+   - Selecionar a origem do evento: **Baseado no tempo**.
+   - Tipo de acionador baseado no tempo: **Temporizador diário**.
+   - Hora do dia: Por exemplo, entre a meia-noite e a 1h.
+   - Grava! Agora, todos os dias à noite, o script verifica se algum jogo tem vídeo com mais de 30 dias e envia-o para o lixo da tua Google Drive para manter o teu espaço livre.
 
 ---
 
 ## 4. Hospedar o Site Gratuitamente (GitHub Pages)
 
-A nossa infraestrutura permite alojar o site a custo zero no GitHub Pages. Segue estes passos:
-
-1. **Criar Repositório:** Vai ao [GitHub](https://github.com/) e cria um novo repositório chamado `tikitasco-app`.
-2. **Preparar o Vite (`vite.config.ts`):** 
-   Se o teu repositório não for na raiz do utilizador, abre o ficheiro `vite.config.ts` e adiciona a propriedade `base` com o nome do teu repositório. Deve ficar parecido a isto:
+1. **Configurar o Vite (`vite.config.ts`):**
+   Verifica se a propriedade `base` contém o nome do teu repositório:
    ```ts
    export default defineConfig({
      plugins: [react()],
-     base: '/tikitasco-app/', // IMPORTANTE: O nome do teu repositório no GitHub
+     base: '/tikitasco-app/',
    })
    ```
-3. **Enviar o Código:**
-   No teu terminal, dentro da pasta do projeto, corre:
+2. **Publicar no GitHub Pages:**
    ```bash
-   git init
-   git add .
-   git commit -m "First commit"
-   git branch -M main
-   git remote add origin https://github.com/O-TEU-USERNAME/tikitasco-app.git
-   git push -u origin main
+   npm run build
+   npm run deploy
    ```
-4. **Publicar:**
-   - Para publicar de forma simples e direta, instala o pacote `gh-pages` correndo no terminal: `npm install gh-pages --save-dev`
-   - Abre o `package.json` e, dentro de `"scripts"`, adiciona: `"deploy": "gh-pages -d dist"`
-   - Para enviar o site para o ar basta agora correres: 
-     `npm run build` seguido de `npm run deploy`
-   - (No GitHub, vai a **Settings > Pages** e verifica se a Source está definida para a branch `gh-pages`).
+3. **Origens de JavaScript Autorizadas (Google Login):**
+   Não te esqueças de colocar `https://o-teu-username.github.io` nas Origens de JavaScript autorizadas na Google Cloud Console para o botão de login funcionar no site publicado.
 
-5. **Aviso de Segurança Crítico (Google Login):**
-   Assim que o site estiver online, **tens de ir ao Google Cloud Console** (ver Passo 1) e adicionar o teu novo domínio às **Origens de JavaScript autorizadas**.
-   - **Atenção:** O Google apenas aceita o domínio base, ou seja, deves colocar apenas `https://o-teu-username.github.io` (sem o `/tikitasco-app` e sem a barra final `/`). Se te esqueceres deste passo, o botão de login da Google vai dar erro quando acederes pelo site publicado!
+---
+
+## 5. Como Fazer Atualizações Futuras
+
+Para saberes o passo a passo exato sempre que quiseres colocar novas alterações online (seja no código da interface ou no Google Apps Script), consulta o guia dedicado em:
+📖 **[docs/ATUALIZACOES.md](./ATUALIZACOES.md)**
