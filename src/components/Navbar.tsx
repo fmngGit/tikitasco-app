@@ -76,8 +76,6 @@ export const Navbar = () => {
 
   if (!profile) return null;
 
-  const isActive = (path: string) => location.pathname === path ? 'var(--primary)' : 'var(--text-muted)';
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -116,52 +114,45 @@ export const Navbar = () => {
   return (
     <>
       <nav className="top-nav">
-        <div className="container navbar-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-            <Link className="navbar-logo-area" to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
-              <img src={logoUrl} alt="TikiTasco Logo" style={{ height: '48px', width: 'auto' }} />
-              <div>Tiki<span style={{ color: 'var(--primary)' }}>Tasco</span></div>
+        <div className="container navbar-container">
+          <Link className="navbar-logo-area" to="/">
+            <img src={logoUrl} alt="TikiTasco Logo" className="navbar-logo-img" />
+            <div className="navbar-logo-text">Tiki<span>Tasco</span></div>
+          </Link>
+          
+          <nav className="navbar-links-container">
+            <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>
+              <Trophy size={16} />
+              <span>Classificação</span>
             </Link>
-            
-            <div className="navbar-links-container" style={{ display: 'flex', gap: '1.25rem' }}>
-              <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: isActive('/'), fontWeight: 500 }}>
-                <Trophy size={18} /> Classificação
-              </Link>
-              <Link to="/history" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: isActive('/history'), fontWeight: 500 }}>
-                <Calendar size={18} /> Histórico
-              </Link>
-              <Link to="/teams" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: isActive('/teams'), fontWeight: 500 }}>
-                <Users size={18} /> Equipas
-              </Link>
-              <Link to="/vote" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: isActive('/vote'), fontWeight: 500 }}>
-                <CheckSquare size={18} /> Votar
-              </Link>
-              <Link to="/register-game" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: isActive('/register-game'), fontWeight: 500 }}>
-                <PlusCircle size={18} /> Registar
-              </Link>
-            </div>
-          </div>
+            <Link to="/history" className={`nav-link ${location.pathname === '/history' ? 'active' : ''}`}>
+              <Calendar size={16} />
+              <span>Histórico</span>
+            </Link>
+            <Link to="/teams" className={`nav-link ${location.pathname === '/teams' ? 'active' : ''}`}>
+              <Users size={16} />
+              <span>Equipas</span>
+            </Link>
+            <Link to="/vote" className={`nav-link ${location.pathname === '/vote' ? 'active' : ''}`}>
+              <CheckSquare size={16} />
+              <span>Votar</span>
+            </Link>
+            <Link to="/register-game" className={`nav-link ${location.pathname === '/register-game' ? 'active' : ''}`}>
+              <PlusCircle size={16} />
+              <span>Registar</span>
+            </Link>
+          </nav>
 
-          <div className="navbar-user-area" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="navbar-user-area">
             {/* Botão Reivindicar Convidado */}
             {ghostUsers.length > 0 && (
               <button
                 onClick={() => setShowClaimModal(true)}
+                className="nav-action-btn nav-claim-btn"
                 title="Reivindicar histórico de jogador convidado"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.3rem',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  color: 'var(--warning)',
-                  background: 'rgba(234, 179, 8, 0.1)',
-                  border: '1px solid rgba(234, 179, 8, 0.3)',
-                  padding: '0.35rem 0.65rem',
-                  borderRadius: '6px'
-                }}
               >
-                <UserPlus size={14} /> Reivindicar Perfil
+                <UserPlus size={14} />
+                <span className="nav-btn-text">Reivindicar</span>
               </button>
             )}
 
@@ -169,36 +160,29 @@ export const Navbar = () => {
             {canInstall && (
               <button
                 onClick={handleInstallClick}
-                title="Instalar TikiTasco no ecrã do telemóvel"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  color: 'var(--primary)',
-                  background: 'rgba(245, 158, 11, 0.1)',
-                  border: '1px solid rgba(245, 158, 11, 0.35)',
-                  padding: '0.35rem 0.65rem',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
+                className="nav-action-btn nav-install-btn"
+                title="Instalar TikiTasco no telemóvel ou computador"
               >
-                <Smartphone size={14} /> Instalar App
+                <Smartphone size={14} />
+                <span className="nav-btn-text">Instalar App</span>
               </button>
             )}
 
             <div 
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', transition: 'opacity 0.2s' }}
+              className="navbar-profile-pill"
               onClick={() => fileInputRef.current?.click()}
               title="Mudar Foto de Perfil"
             >
               <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
-              {realAvatar && <img src={realAvatar} alt="Avatar" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', opacity: uploading ? 0.5 : 1 }} />}
-              <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{uploading ? 'A guardar...' : profile.name}</span>
+              {realAvatar ? (
+                <img src={realAvatar} alt="Avatar" className="navbar-avatar-img" style={{ opacity: uploading ? 0.5 : 1 }} />
+              ) : (
+                <div className="navbar-avatar-placeholder">{profile.name?.charAt(0) || 'U'}</div>
+              )}
+              <span className="navbar-profile-name">{uploading ? 'A guardar...' : profile.name}</span>
             </div>
             
-            <button onClick={logout} title="Sair" style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', padding: '0.5rem', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}>
+            <button onClick={logout} className="nav-logout-btn" title="Terminar Sessão">
               <LogOut size={16} />
             </button>
           </div>
