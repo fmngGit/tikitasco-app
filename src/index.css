@@ -144,6 +144,46 @@ input:focus, select:focus {
   border-color: var(--primary);
 }
 
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Dedicated Score Inputs */
+.score-input {
+  width: 76px !important;
+  height: 64px !important;
+  font-size: 2rem !important;
+  font-weight: 900 !important;
+  text-align: center !important;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  line-height: 1 !important;
+}
+.score-input:focus {
+  transform: scale(1.04);
+}
+
+.score-input-sm {
+  width: 56px !important;
+  height: 44px !important;
+  font-size: 1.3rem !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  line-height: 1 !important;
+}
+.score-input-sm:focus {
+  transform: scale(1.04);
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

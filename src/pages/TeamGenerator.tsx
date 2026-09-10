@@ -154,14 +154,6 @@ export const TeamGenerator = () => {
             Distribui os jogadores de forma 100% equilibrada com base no OVR e na posição de guarda-redes.
           </p>
         </div>
-
-        <button
-          onClick={() => setShowAddGuest(true)}
-          className="btn-secondary"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem' }}
-        >
-          <Plus size={16} /> Adicionar Convidado
-        </button>
       </div>
 
       {/* Controlos de Configuração */}
@@ -282,11 +274,28 @@ export const TeamGenerator = () => {
           </div>
         )}
 
-        <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setShowAddGuest(true)}
+            className="btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontSize: '0.85rem',
+              padding: '0.75rem 1.2rem',
+              borderRadius: '8px',
+              border: '1px dashed rgba(245, 158, 11, 0.5)',
+              background: 'rgba(245, 158, 11, 0.06)'
+            }}
+          >
+            <Plus size={16} style={{ color: 'var(--primary)' }} /> Adicionar Convidado
+          </button>
           <button
             onClick={generateBalancedTeams}
             className="btn-primary"
-            style={{ width: '100%', maxWidth: '360px', padding: '0.85rem' }}
+            style={{ minWidth: '240px', padding: '0.85rem 1.5rem' }}
             disabled={selectedEmails.length < teamCount * 2}
           >
             <Shuffle size={18} /> Sortear Equipas Justas

@@ -387,20 +387,10 @@ export const RegisterGame = () => {
 
   return (
     <div className="container animate-fade-in" style={{ padding: '2rem 1.5rem', maxWidth: '880px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
         <h1 style={{ fontSize: '1.8rem' }}>
           {editGameId ? 'Editar Jogo' : 'Registar Jogo ou Sessão'}
         </h1>
-
-        {!editGameId && (
-          <button
-            onClick={() => setShowAddGuest(true)}
-            className="btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem' }}
-          >
-            <Plus size={16} /> Adicionar Convidado
-          </button>
-        )}
       </div>
 
       {/* Seletor de Modalidade */}
@@ -466,19 +456,52 @@ export const RegisterGame = () => {
           {/* ======================= MODALIDADE 1: PADRÃO ======================= */}
           {modality === 'standard' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '1.5rem', alignItems: 'center', marginBottom: '2rem' }}>
-                <div>
-                  <label style={{ display: 'block', textAlign: 'center', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--primary)' }}>Golos Equipa A</label>
-                  <input type="number" min="0" value={resA} onChange={e => setResA(Number(e.target.value))} style={{ fontSize: '2.5rem', textAlign: 'center', fontWeight: 900 }} />
+              {/* Placar de Golos Centralizado e Compacto */}
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.75rem', marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+                  <label style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Equipa A
+                  </label>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    value={resA} 
+                    onChange={e => setResA(Math.max(0, parseInt(e.target.value, 10) || 0))} 
+                    className="score-input"
+                    style={{ 
+                      background: 'rgba(245, 158, 11, 0.1)',
+                      border: '2px solid var(--primary)',
+                      color: 'var(--text-main)',
+                      boxShadow: '0 4px 15px rgba(245, 158, 11, 0.25)'
+                    }} 
+                  />
                 </div>
-                <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--text-muted)' }}>X</div>
-                <div>
-                  <label style={{ display: 'block', textAlign: 'center', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--danger)' }}>Golos Equipa B</label>
-                  <input type="number" min="0" value={resB} onChange={e => setResB(Number(e.target.value))} style={{ fontSize: '2.5rem', textAlign: 'center', fontWeight: 900 }} />
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: '1.4rem' }}>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>X</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+                  <label style={{ fontWeight: 700, color: 'var(--danger)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Equipa B
+                  </label>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    value={resB} 
+                    onChange={e => setResB(Math.max(0, parseInt(e.target.value, 10) || 0))} 
+                    className="score-input"
+                    style={{ 
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '2px solid var(--danger)',
+                      color: 'var(--text-main)',
+                      boxShadow: '0 4px 15px rgba(239, 68, 68, 0.25)'
+                    }} 
+                  />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginBottom: '1.5rem' }}>
                 {/* Equipa A */}
                 <div>
                   <h3 style={{ marginBottom: '1rem', borderBottom: '2px solid var(--primary)', paddingBottom: '0.5rem', color: 'var(--primary)' }}>
@@ -517,6 +540,27 @@ export const RegisterGame = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Botão Adicionar Convidado por baixo das equipas */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddGuest(true)}
+                  className="btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.9rem',
+                    padding: '0.65rem 1.25rem',
+                    borderRadius: '8px',
+                    border: '1px dashed rgba(245, 158, 11, 0.5)',
+                    background: 'rgba(245, 158, 11, 0.06)'
+                  }}
+                >
+                  <Plus size={16} style={{ color: 'var(--primary)' }} /> Adicionar Convidado à Lista
+                </button>
+              </div>
             </>
           )}
 
@@ -528,7 +572,7 @@ export const RegisterGame = () => {
               </p>
 
               {/* Roster das 3 Equipas */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
                 {(['A', 'B', 'C'] as const).map(teamKey => {
                   const teamColor = teamKey === 'A' ? 'var(--primary)' : teamKey === 'B' ? 'var(--danger)' : '#3b82f6';
                   const teamRoster = teamKey === 'A' ? reiEquipaA : teamKey === 'B' ? reiEquipaB : reiEquipaC;
@@ -545,7 +589,7 @@ export const RegisterGame = () => {
                               onChange={() => handleReiPlayerToggle(u.Email, teamKey)} 
                               style={{ width: 'auto' }} 
                             />
-                            {u.Nome}
+                            {u.Nome} {u.IsGuest && '👻'}
                           </label>
                         ))}
                       </div>
@@ -554,66 +598,99 @@ export const RegisterGame = () => {
                 })}
               </div>
 
+              {/* Botão Adicionar Convidado por baixo das 3 equipas */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddGuest(true)}
+                  className="btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.85rem',
+                    padding: '0.6rem 1.2rem',
+                    borderRadius: '8px',
+                    border: '1px dashed rgba(245, 158, 11, 0.5)',
+                    background: 'rgba(245, 158, 11, 0.06)'
+                  }}
+                >
+                  <Plus size={16} style={{ color: 'var(--primary)' }} /> Adicionar Convidado à Lista
+                </button>
+              </div>
+
               {/* Mini-Jogos da Sessão */}
               <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Trophy size={18} style={{ color: 'var(--primary)' }} /> Mini-Jogos Realizados ({reiMiniGames.length})
               </h3>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
                 {reiMiniGames.map((mini, idx) => (
                   <div key={idx} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: 'rgba(0,0,0,0.25)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', gap: '1rem'
+                    background: 'rgba(0,0,0,0.25)', padding: '0.85rem 1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)', gap: '1rem'
                   }}>
-                    <span style={{ fontWeight: 700, color: 'var(--text-muted)', width: '30px' }}>#{idx + 1}</span>
+                    <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.9rem', minWidth: '32px' }}>#{idx + 1}</span>
                     
-                    <div style={{ flex: 1, textAlign: 'center' }}>
-                      <span style={{ fontWeight: 700, color: mini.teamAKey === 'A' ? 'var(--primary)' : mini.teamAKey === 'B' ? 'var(--danger)' : '#3b82f6' }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                      <span style={{ fontWeight: 700, color: mini.teamAKey === 'A' ? 'var(--primary)' : mini.teamAKey === 'B' ? 'var(--danger)' : '#3b82f6', fontSize: '0.95rem' }}>
                         Equipa {mini.teamAKey}
                       </span>
                       <input 
                         type="number" min="0" value={mini.resA} 
                         onChange={e => {
-                          const val = Number(e.target.value);
+                          const val = Math.max(0, parseInt(e.target.value, 10) || 0);
                           setReiMiniGames(prev => {
                             const c = [...prev];
                             c[idx].resA = val;
                             return c;
                           });
                         }} 
-                        style={{ width: '60px', textAlign: 'center', fontWeight: 900, fontSize: '1.3rem', margin: '0 0.5rem' }} 
+                        className="score-input-sm"
+                        style={{
+                          border: `1.5px solid ${mini.teamAKey === 'A' ? 'rgba(245, 158, 11, 0.6)' : mini.teamAKey === 'B' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(59, 130, 246, 0.6)'}`,
+                          background: 'rgba(255,255,255,0.06)',
+                          color: '#fff'
+                        }}
                       />
                     </div>
 
-                    <span style={{ fontWeight: 800, color: 'var(--text-muted)' }}>X</span>
+                    <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.9rem' }}>–</span>
 
-                    <div style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.75rem' }}>
                       <input 
                         type="number" min="0" value={mini.resB} 
                         onChange={e => {
-                          const val = Number(e.target.value);
+                          const val = Math.max(0, parseInt(e.target.value, 10) || 0);
                           setReiMiniGames(prev => {
                             const c = [...prev];
                             c[idx].resB = val;
                             return c;
                           });
                         }} 
-                        style={{ width: '60px', textAlign: 'center', fontWeight: 900, fontSize: '1.3rem', margin: '0 0.5rem' }} 
+                        className="score-input-sm"
+                        style={{
+                          border: `1.5px solid ${mini.teamBKey === 'A' ? 'rgba(245, 158, 11, 0.6)' : mini.teamBKey === 'B' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(59, 130, 246, 0.6)'}`,
+                          background: 'rgba(255,255,255,0.06)',
+                          color: '#fff'
+                        }}
                       />
-                      <span style={{ fontWeight: 700, color: mini.teamBKey === 'A' ? 'var(--primary)' : mini.teamBKey === 'B' ? 'var(--danger)' : '#3b82f6' }}>
+                      <span style={{ fontWeight: 700, color: mini.teamBKey === 'A' ? 'var(--primary)' : mini.teamBKey === 'B' ? 'var(--danger)' : '#3b82f6', fontSize: '0.95rem' }}>
                         Equipa {mini.teamBKey}
                       </span>
                     </div>
 
-                    {idx === reiMiniGames.length - 1 && idx > 0 && (
+                    {idx === reiMiniGames.length - 1 && idx > 0 ? (
                       <button 
                         type="button" 
                         onClick={() => setReiMiniGames(prev => prev.slice(0, -1))}
-                        style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                        style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
                         title="Remover este mini-jogo"
                       >
                         <Trash2 size={16} />
                       </button>
+                    ) : (
+                      <div style={{ width: '24px' }} />
                     )}
                   </div>
                 ))}
@@ -652,14 +729,32 @@ export const RegisterGame = () => {
                           onChange={() => setRotPool(prev => prev.includes(u.Email) ? prev.filter(e => e !== u.Email) : [...prev, u.Email])} 
                           style={{ width: 'auto' }} 
                         />
-                        <span style={{ fontSize: '0.85rem' }}>{u.Nome}</span>
+                        <span style={{ fontSize: '0.85rem' }}>{u.Nome} {u.IsGuest && '👻'}</span>
                       </label>
                     ))}
                   </div>
 
-                  <div style={{ textAlign: 'center' }}>
-                    <button type="button" onClick={startRotationMode} className="btn-primary">
-                      Iniciar Sessão de Rotação com {rotPool.length} Jogadores
+                  {/* Ações por baixo do pool de jogadores */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddGuest(true)}
+                      className="btn-secondary"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.85rem',
+                        padding: '0.65rem 1.2rem',
+                        borderRadius: '8px',
+                        border: '1px dashed rgba(245, 158, 11, 0.5)',
+                        background: 'rgba(245, 158, 11, 0.06)'
+                      }}
+                    >
+                      <Plus size={16} style={{ color: 'var(--primary)' }} /> Adicionar Convidado
+                    </button>
+                    <button type="button" onClick={startRotationMode} className="btn-primary" style={{ padding: '0.65rem 1.5rem' }}>
+                      Iniciar Sessão com {rotPool.length} Jogadores
                     </button>
                   </div>
                 </div>
@@ -673,31 +768,49 @@ export const RegisterGame = () => {
 
                   {rotRounds.map((round, rIdx) => (
                     <div key={rIdx} style={{ background: 'rgba(0,0,0,0.25)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                        <h4 style={{ color: 'var(--primary)' }}>Ronda #{rIdx + 1}</h4>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                        <h4 style={{ color: 'var(--primary)', margin: 0, fontSize: '1.05rem' }}>Ronda #{rIdx + 1}</h4>
                         
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)' }}>Equipa A</span>
                           <input 
                             type="number" min="0" value={round.resA} 
                             onChange={e => {
-                              const val = Number(e.target.value);
+                              const val = Math.max(0, parseInt(e.target.value, 10) || 0);
                               setRotRounds(prev => {
                                 const c = [...prev]; c[rIdx].resA = val; return c;
                               });
                             }} 
-                            style={{ width: '50px', textAlign: 'center', fontWeight: 800 }} 
+                            className="score-input-sm"
+                            style={{
+                              width: '52px',
+                              height: '40px',
+                              fontSize: '1.25rem',
+                              border: '1.5px solid rgba(245, 158, 11, 0.5)',
+                              background: 'rgba(245, 158, 11, 0.08)',
+                              color: '#fff'
+                            }}
                           />
-                          <span style={{ fontWeight: 800, color: 'var(--text-muted)' }}>X</span>
+                          <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0 0.15rem' }}>–</span>
                           <input 
                             type="number" min="0" value={round.resB} 
                             onChange={e => {
-                              const val = Number(e.target.value);
+                              const val = Math.max(0, parseInt(e.target.value, 10) || 0);
                               setRotRounds(prev => {
                                 const c = [...prev]; c[rIdx].resB = val; return c;
                               });
                             }} 
-                            style={{ width: '50px', textAlign: 'center', fontWeight: 800 }} 
+                            className="score-input-sm"
+                            style={{
+                              width: '52px',
+                              height: '40px',
+                              fontSize: '1.25rem',
+                              border: '1.5px solid rgba(239, 68, 68, 0.5)',
+                              background: 'rgba(239, 68, 68, 0.08)',
+                              color: '#fff'
+                            }}
                           />
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--danger)' }}>Equipa B</span>
                         </div>
                       </div>
 
@@ -748,14 +861,31 @@ export const RegisterGame = () => {
                     </div>
                   ))}
 
-                  <button
-                    type="button"
-                    onClick={addNextRotationRound}
-                    className="btn-secondary"
-                    style={{ width: '100%', marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                  >
-                    <Plus size={16} /> Adicionar Próxima Ronda (Mantém equipas para trocar)
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
+                    <button
+                      type="button"
+                      onClick={addNextRotationRound}
+                      className="btn-secondary"
+                      style={{ flex: 1, minWidth: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                    >
+                      <Plus size={16} /> Adicionar Próxima Ronda (Mantém equipas)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddGuest(true)}
+                      className="btn-secondary"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        fontSize: '0.85rem',
+                        border: '1px dashed rgba(245, 158, 11, 0.5)',
+                        background: 'rgba(245, 158, 11, 0.06)'
+                      }}
+                    >
+                      <Plus size={15} style={{ color: 'var(--primary)' }} /> Novo Convidado
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
