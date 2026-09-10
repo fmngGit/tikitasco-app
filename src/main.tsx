@@ -16,3 +16,13 @@ createRoot(document.getElementById('root')!).render(
     </GoogleOAuthProvider>
   </StrictMode>
 );
+
+// Registo de Service Worker para PWA (Progressive Web App)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.log('ServiceWorker registration:', err);
+    });
+  });
+}
+

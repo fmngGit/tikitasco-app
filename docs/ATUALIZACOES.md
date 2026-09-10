@@ -83,6 +83,9 @@ Se a atualização introduziu novas colunas nas tabelas (por exemplo, suporte pa
 
 🎉 **Pronto!** O URL da API mantém-se exatamente o mesmo, mas a partir deste segundo já está a responder com a lógica nova.
 
+> [!TIP]
+> **Upload de vídeos grandes (> 1 GB):** Para vídeos muito pesados gravados em 4K/HD pelo telemóvel, podes fazer o upload direto através da app com a barra de progresso ou, em alternativa, fazer o upload normal na app Google Drive do telemóvel e colar o link de partilha no campo *"OU cola um link da Drive/Cloud"*. Ambos ficam protegidos com a política de 30 dias!
+
 ---
 
 ## 3. O que fazer se mudares variáveis de ambiente (`.env`)

@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, CheckSquare, PlusCircle, Calendar, LogOut, Users, UserPlus } from 'lucide-react';
+import { Trophy, CheckSquare, PlusCircle, Calendar, LogOut, Users, UserPlus, Smartphone } from 'lucide-react';
 import { fetchUsers, updateAvatar, type UserStats } from '../services/api';
 import { ClaimGhostModal } from './ClaimGhostModal';
+import { InstallPwaModal } from './InstallPwaModal';
 import logoUrl from '../assets/tikitasco.png';
 
 export const Navbar = () => {
@@ -13,7 +14,47 @@ export const Navbar = () => {
   const [uploading, setUploading] = useState(false);
   const [ghostUsers, setGhostUsers] = useState<UserStats[]>([]);
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [canInstall, setCanInstall] = useState(false);
+  const [showIosModal, setShowIosModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Verificar se já está a correr como app instalada (standalone)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    if (isStandalone) {
+      setCanInstall(false);
+      return;
+    }
+
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    if (isIos) {
+      setCanInstall(true);
+    }
+
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setCanInstall(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choice: any) => {
+        if (choice && choice.outcome === 'accepted') {
+          setCanInstall(false);
+        }
+        setDeferredPrompt(null);
+      });
+    } else {
+      setShowIosModal(true);
+    }
+  };
 
   const loadUserData = () => {
     if (profile) {
@@ -124,6 +165,29 @@ export const Navbar = () => {
               </button>
             )}
 
+            {/* Botão Instalar App PWA */}
+            {canInstall && (
+              <button
+                onClick={handleInstallClick}
+                title="Instalar TikiTasco no ecrã do telemóvel"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: 'var(--primary)',
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Smartphone size={14} /> Instalar App
+              </button>
+            )}
+
             <div 
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', transition: 'opacity 0.2s' }}
               onClick={() => fileInputRef.current?.click()}
@@ -150,6 +214,10 @@ export const Navbar = () => {
             window.location.reload();
           }}
         />
+      )}
+
+      {showIosModal && (
+        <InstallPwaModal onClose={() => setShowIosModal(false)} />
       )}
     </>
   );

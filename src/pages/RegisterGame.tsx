@@ -318,6 +318,15 @@ export const RegisterGame = () => {
       };
     }
 
+    // Se selecionou ficheiro mas não fez upload nem colou link, avisar o utilizador
+    if (videoFile && !finalVideoData) {
+      const proceed = window.confirm("Selecionaste um ficheiro de vídeo mas ainda não fizeste o upload para a Drive. Queres continuar e registar o jogo sem o vídeo?");
+      if (!proceed) {
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       if (editGameId) {
         // Edição de jogo existente

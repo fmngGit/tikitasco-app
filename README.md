@@ -40,6 +40,10 @@ A infraestrutura foi desenhada para ser **100% gratuita** e totalmente **segura*
 10. **Sistema de Avaliação & Votação Inteligente:**
     - Carregamento automático dos últimos votos para ajuste rápido em sliders de 1-99.
     - Prevenção ativa de auto-votação tanto no frontend como no backend.
+11. **Suporte a PWA (Instalação no Telemóvel):**
+    - Ícone e manifesto de aplicação configurados com suporte a ecrã inteiro (*standalone*).
+    - Botão de instalação automática para Android / Chrome e guia passo-a-passo para utilizadores de iPhone (Safari).
+    - Service Worker que acelera o carregamento da aplicação através de cache local inteligente.
 
 ## 📖 Como Hospedar e Configurar
 
