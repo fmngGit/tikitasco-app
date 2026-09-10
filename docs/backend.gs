@@ -262,6 +262,7 @@ function initiateVideoUpload(params) {
     const fileName = (params.fileName || "Jogo_TikiTasco_" + new Date().getTime() + ".mp4");
     const mimeType = params.mimeType || "video/mp4";
     const fileSize = params.fileSize;
+    const clientOrigin = params.origin || "https://fmnggit.github.io";
 
     const metadata = {
       name: fileName,
@@ -271,21 +272,24 @@ function initiateVideoUpload(params) {
     const token = ScriptApp.getOAuthToken();
     const url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable";
     
+    const reqHeaders = {
+      "Authorization": "Bearer " + token,
+      "X-Upload-Content-Type": mimeType,
+      "X-Upload-Content-Length": String(fileSize),
+      "Origin": clientOrigin
+    };
+
     const options = {
       method: "POST",
       contentType: "application/json; charset=UTF-8",
-      headers: {
-        "Authorization": "Bearer " + token,
-        "X-Upload-Content-Type": mimeType,
-        "X-Upload-Content-Length": String(fileSize)
-      },
+      headers: reqHeaders,
       payload: JSON.stringify(metadata),
       muteHttpExceptions: true
     };
 
     const response = UrlFetchApp.fetch(url, options);
-    const headers = response.getAllHeaders();
-    const uploadUrl = headers["Location"] || headers["location"];
+    const respHeaders = response.getAllHeaders();
+    const uploadUrl = respHeaders["Location"] || respHeaders["location"];
 
     if (!uploadUrl) {
       return ContentService.createTextOutput(JSON.stringify({ 

@@ -218,7 +218,8 @@ export const initiateVideoUpload = async (token: string, fileName: string, fileS
         token,
         fileName,
         fileSize,
-        mimeType
+        mimeType,
+        origin: window.location.origin
       })
     });
     return await res.json();
@@ -253,6 +254,9 @@ export const uploadVideoToDrive = (
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', uploadUrl, true);
     xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+    if (file.size > 0) {
+      xhr.setRequestHeader('Content-Range', `bytes 0-${file.size - 1}/${file.size}`);
+    }
 
     if (xhr.upload && onProgress) {
       xhr.upload.onprogress = (e) => {
@@ -272,12 +276,15 @@ export const uploadVideoToDrive = (
           resolve({ success: true });
         }
       } else {
-        resolve({ success: false, error: `Erro no upload do Google Drive (${xhr.status})` });
+        resolve({ success: false, error: `Erro no upload do Google Drive (${xhr.status}): ${xhr.statusText}` });
       }
     };
 
     xhr.onerror = () => {
-      resolve({ success: false, error: 'Erro de rede durante o upload do vídeo.' });
+      resolve({ 
+        success: false, 
+        error: 'Erro de rede ou permissão CORS ao enviar para a Google Drive. Por favor atualiza o backend no Apps Script com a nova versão de backend.gs.' 
+      });
     };
 
     xhr.send(file);
