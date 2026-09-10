@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchUsers, createGuestPlayer, type UserStats } from '../services/api';
+import { fetchUsers, createGuestPlayer, sortUsersByName, type UserStats } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Users, Shuffle, ArrowRight, ShieldCheck, Check, Plus } from 'lucide-react';
 
@@ -56,7 +56,7 @@ export const TeamGenerator = () => {
     setCreatingGuest(false);
 
     if (res.success && res.user) {
-      setUsers(prev => [...prev, res.user!]);
+      setUsers(prev => sortUsersByName([...prev, res.user!]));
       setSelectedEmails(prev => [...prev, res.user!.Email]);
       setGuestName('');
       setGuestError(null);

@@ -28,9 +28,15 @@ export const Leaderboard = () => {
   }, []);
 
   const renderTeam = (teamEmails: string[]) => {
+    const sortedEmails = [...teamEmails].sort((a, b) => {
+      const nameA = users.find(u => u.Email === a)?.Nome || a;
+      const nameB = users.find(u => u.Email === b)?.Nome || b;
+      return nameA.localeCompare(nameB, 'pt', { sensitivity: 'base' });
+    });
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '1rem' }}>
-        {teamEmails.map(email => {
+        {sortedEmails.map(email => {
           const user = users.find(u => u.Email === email);
           return (
             <div key={email} style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>

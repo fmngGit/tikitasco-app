@@ -7,6 +7,7 @@ import {
   registerSession,
   editGame, 
   createGuestPlayer,
+  sortUsersByName,
   initiateVideoUpload,
   uploadVideoToDrive,
   finalizeVideoUpload,
@@ -156,7 +157,7 @@ export const RegisterGame = () => {
 
     if (res.success && res.user) {
       const newUser = res.user;
-      setUsers(prev => [...prev, newUser]);
+      setUsers(prev => sortUsersByName([...prev, newUser]));
 
       // Auto-selecionar o novo convidado na modalidade atual
       if (modality === 'standard') {

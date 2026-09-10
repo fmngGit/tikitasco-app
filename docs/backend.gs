@@ -138,6 +138,10 @@ function doPost(e) {
        const result = updateAvatar(userEmail, params.base64);
        lock.releaseLock();
        return result;
+    } else if (action === "update_profile") {
+       const result = updateProfile(userEmail, params.name, params.avatar);
+       lock.releaseLock();
+       return result;
     }
     
     lock.releaseLock();
@@ -502,6 +506,29 @@ function updateAvatar(email, base64) {
             sheet.getRange(i + 1, 8).setValue(base64 || "");
             return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Avatar atualizado com sucesso!" }))
                 .setMimeType(ContentService.MimeType.JSON);
+        }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Utilizador não encontrado." }))
+        .setMimeType(ContentService.MimeType.JSON);
+}
+
+function updateProfile(email, name, avatar) {
+    const sheet = getSpreadsheet().getSheetByName("Users");
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][1] === email) {
+            if (name && typeof name === "string" && name.trim().length > 0) {
+                sheet.getRange(i + 1, 1).setValue(name.trim());
+            }
+            if (avatar !== undefined && avatar !== null) {
+                sheet.getRange(i + 1, 8).setValue(avatar);
+            }
+            return ContentService.createTextOutput(JSON.stringify({ 
+                success: true, 
+                message: "Perfil atualizado com sucesso!",
+                name: name ? name.trim() : data[i][0],
+                avatar: avatar !== undefined && avatar !== null ? avatar : data[i][7]
+            })).setMimeType(ContentService.MimeType.JSON);
         }
     }
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Utilizador não encontrado." }))

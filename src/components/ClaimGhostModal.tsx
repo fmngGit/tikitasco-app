@@ -139,7 +139,7 @@ export const ClaimGhostModal: React.FC<ClaimGhostModalProps> = ({ ghostUsers, on
                 }}
               >
                 <option value="" disabled>Seleciona o teu nome...</option>
-                {ghostUsers.map(u => (
+                {[...ghostUsers].sort((a, b) => (a.Nome || '').localeCompare(b.Nome || '', 'pt', { sensitivity: 'base' })).map(u => (
                   <option key={u.Email} value={u.Email}>
                     {u.Nome} ({u.Jogos_Jogados} jogos • {u.Pontos_Totais} pts)
                   </option>

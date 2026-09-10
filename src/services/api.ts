@@ -56,6 +56,14 @@ export const invalidateCache = () => {
   gamesCache = null;
 };
 
+export const sortUsersByName = <T extends { Nome?: string; name?: string }>(list: T[]): T[] => {
+  return [...list].sort((a, b) => {
+    const nameA = a.Nome || (a as any).name || '';
+    const nameB = b.Nome || (b as any).name || '';
+    return nameA.localeCompare(nameB, 'pt', { sensitivity: 'base' });
+  });
+};
+
 export const fetchUsers = async (forceRefresh = false): Promise<UserStats[]> => {
   const now = Date.now();
   if (!forceRefresh && usersCache && now - lastUsersFetch < CACHE_TTL) {
@@ -63,17 +71,18 @@ export const fetchUsers = async (forceRefresh = false): Promise<UserStats[]> => 
   }
 
   if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-    usersCache = mockUsers;
-    return mockUsers;
+    usersCache = sortUsersByName(mockUsers);
+    return usersCache;
   }
   
   try {
     const res = await fetch(`${GAS_URL}?action=get_users`);
     const data = await res.json();
     if (data.success) {
-      usersCache = data.data;
+      const sortedUsers = sortUsersByName<UserStats>(data.data || []);
+      usersCache = sortedUsers;
       lastUsersFetch = now;
-      return data.data;
+      return sortedUsers;
     }
     throw new Error(data.error);
   } catch (error) {
@@ -477,6 +486,32 @@ export const updateAvatar = async (token: string, base64: string): Promise<{succ
     const data = await res.json();
     if (data.success) invalidateCache();
     return data;
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
+export const updateProfile = async (
+  token: string,
+  data: { name?: string; avatar?: string }
+): Promise<{ success: boolean; message?: string; name?: string; avatar?: string; error?: string }> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      invalidateCache();
+      return { success: true, message: "Perfil atualizado com sucesso!" };
+    }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'update_profile',
+        token,
+        name: data.name,
+        avatar: data.avatar
+      })
+    });
+    const result = await res.json();
+    if (result.success) invalidateCache();
+    return result;
   } catch (err: any) {
     return { success: false, error: err.toString() };
   }
