@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, CheckSquare, PlusCircle, Calendar, LogOut, Users, UserPlus, Smartphone } from 'lucide-react';
+import { Trophy, CheckSquare, PlusCircle, Calendar, LogOut, Users, UserPlus, Smartphone, Wallet } from 'lucide-react';
 import { fetchUsers, type UserStats } from '../services/api';
 import { ClaimGhostModal } from './ClaimGhostModal';
 import { InstallPwaModal } from './InstallPwaModal';
@@ -103,6 +103,10 @@ export const Navbar = () => {
             <Link to="/register-game" className={`nav-link ${location.pathname === '/register-game' ? 'active' : ''}`}>
               <PlusCircle size={16} />
               <span>Registar</span>
+            </Link>
+            <Link to="/treasury" className={`nav-link ${location.pathname === '/treasury' ? 'active' : ''}`}>
+              <Wallet size={16} />
+              <span>Caixinha</span>
             </Link>
           </nav>
 

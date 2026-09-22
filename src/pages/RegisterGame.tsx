@@ -35,6 +35,8 @@ export const RegisterGame = () => {
   const [equipaB, setEquipaB] = useState<string[]>([]);
   const [resA, setResA] = useState<number>(0);
   const [resB, setResB] = useState<number>(0);
+  const [fieldCost, setFieldCost] = useState<number>(0);
+  const [playerFee, setPlayerFee] = useState<number>(0);
 
   // Modo Rei da Pista (3 Equipas)
   const [reiEquipaA, setReiEquipaA] = useState<string[]>([]);
@@ -104,6 +106,8 @@ export const RegisterGame = () => {
           setEquipaA(gameToEdit.Equipa_A || []);
           setEquipaB(gameToEdit.Equipa_B || []);
           setGameDate(new Date(gameToEdit.Data).toISOString().split('T')[0]);
+          setFieldCost(gameToEdit.FieldCost || 0);
+          setPlayerFee(gameToEdit.Fee || 0);
           if (gameToEdit.VideoDownloadUrl) {
             setUploadedVideoData({
               fileId: gameToEdit.VideoFileId,
@@ -345,7 +349,7 @@ export const RegisterGame = () => {
           setLoading(false);
           return;
         }
-        const res = await registerGame(token, gameDate, resA, resB, equipaA, equipaB, finalVideoData || undefined, undefined, 'standard');
+        const res = await registerGame(token, gameDate, resA, resB, equipaA, equipaB, finalVideoData || undefined, undefined, 'standard', 1, fieldCost, playerFee);
         if (res.success) {
           setMessage({ type: 'success', text: 'Jogo registado com sucesso! Os pontos foram atualizados.' });
           setTimeout(() => navigate('/history'), 1500);
@@ -422,6 +426,12 @@ export const RegisterGame = () => {
     return u ? u.Nome : email.split('@')[0];
   };
 
+  const numPlayers = modality === 'standard' ? equipaA.length + equipaB.length 
+                   : modality === 'reidapista' ? reiEquipaA.length + reiEquipaB.length + reiEquipaC.length
+                   : rotPool.length;
+                   
+  const costPerPlayer = numPlayers > 0 ? (fieldCost / numPlayers) + playerFee : 0;
+
   return (
     <div className="container animate-fade-in" style={{ padding: '2rem 1.5rem', maxWidth: '880px' }}>
       <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
@@ -488,6 +498,55 @@ export const RegisterGame = () => {
               required
               style={{ maxWidth: '240px', textAlign: 'center', fontSize: '1.1rem', margin: '0 auto' }}
             />
+          </div>
+
+          {/* Custos e Tesouraria */}
+          <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid var(--border-color)' }}>
+            <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+              💰 Custos e Tesouraria
+            </h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Custo do Campo (Total €)</label>
+                <input 
+                  type="number" 
+                  min="0" 
+                  step="0.01"
+                  value={fieldCost || ''} 
+                  onChange={e => setFieldCost(Math.max(0, parseFloat(e.target.value) || 0))} 
+                  style={{ width: '100%', padding: '0.75rem' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Taxa para Caixinha (Por Jogador €)</label>
+                <input 
+                  type="number" 
+                  min="0" 
+                  step="0.01"
+                  value={playerFee || ''} 
+                  onChange={e => setPlayerFee(Math.max(0, parseFloat(e.target.value) || 0))} 
+                  style={{ width: '100%', padding: '0.75rem' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ 
+              background: 'rgba(245, 158, 11, 0.1)', 
+              border: '1px dashed rgba(245, 158, 11, 0.4)', 
+              padding: '1rem', 
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>Total a pagar por jogador ({numPlayers} jogadores)</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                {costPerPlayer.toFixed(2)}€
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                ({fieldCost > 0 && numPlayers > 0 ? (fieldCost/numPlayers).toFixed(2) : '0.00'}€ p/ campo + {playerFee.toFixed(2)}€ p/ caixinha)
+              </div>
+            </div>
           </div>
 
           {/* ======================= MODALIDADE 1: PADRÃO ======================= */}

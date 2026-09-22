@@ -34,6 +34,17 @@ export interface GameStats {
   VideoDownloadUrl?: string;
   VideoExpiryDate?: string;
   RoundNumber?: number;
+  FieldCost?: number;
+  Fee?: number;
+}
+
+export interface Expense {
+  ExpenseID: string;
+  Data: string;
+  Descricao: string;
+  Valor: number;
+  FotoUrl?: string;
+  RegistadoPor?: string;
 }
 
 export interface SessionRound {
@@ -47,13 +58,16 @@ export interface SessionRound {
 // In-memory cache com invalidação inteligente para navegação rápida
 let usersCache: UserStats[] | null = null;
 let gamesCache: GameStats[] | null = null;
+let expensesCache: Expense[] | null = null;
 let lastUsersFetch = 0;
 let lastGamesFetch = 0;
+let lastExpensesFetch = 0;
 const CACHE_TTL = 30000; // 30 segundos
 
 export const invalidateCache = () => {
   usersCache = null;
   gamesCache = null;
+  expensesCache = null;
 };
 
 export const sortUsersByName = <T extends { Nome?: string; name?: string }>(list: T[]): T[] => {
@@ -112,6 +126,31 @@ export const fetchGames = async (forceRefresh = false): Promise<GameStats[]> => 
     throw new Error(data.error);
   } catch (error) {
     return gamesCache || [];
+  }
+};
+
+export const fetchExpenses = async (forceRefresh = false): Promise<Expense[]> => {
+  const now = Date.now();
+  if (!forceRefresh && expensesCache && now - lastExpensesFetch < CACHE_TTL) {
+    return expensesCache;
+  }
+
+  if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+    expensesCache = mockExpenses;
+    return mockExpenses;
+  }
+  
+  try {
+    const res = await fetch(`${GAS_URL}?action=get_expenses`);
+    const data = await res.json();
+    if (data.success) {
+      expensesCache = data.data;
+      lastExpensesFetch = now;
+      return data.data;
+    }
+    throw new Error(data.error);
+  } catch (error) {
+    return expensesCache || [];
   }
 };
 
@@ -253,6 +292,27 @@ export const finalizeVideoUpload = async (token: string, fileId: string): Promis
   }
 };
 
+// Upload de Fatura/Recibo para Google Drive
+export const uploadReceiptToDrive = async (token: string, base64: string, filename: string): Promise<{success: boolean, fileUrl?: string, error?: string}> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      return { success: true, fileUrl: 'https://via.placeholder.com/300x400.png?text=Fatura+Mock' };
+    }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'upload_receipt',
+        token,
+        base64,
+        filename
+      })
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
 // Envio em stream do ficheiro para a Google Drive com callback de progresso
 export const uploadVideoToDrive = (
   file: File, 
@@ -343,7 +403,9 @@ export const registerGame = async (
   videoData?: { fileId?: string, downloadUrl?: string, expiryDate?: string },
   sessionId?: string,
   sessionType?: 'standard' | 'reidapista' | 'rotacao_dinamica',
-  roundNumber?: number
+  roundNumber?: number,
+  fieldCost?: number,
+  fee?: number
 ): Promise<{success: boolean, gameId?: string, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
@@ -365,7 +427,9 @@ export const registerGame = async (
         videoFileId: videoData?.fileId || '',
         videoDownloadUrl: videoData?.downloadUrl || '',
         videoExpiryDate: videoData?.expiryDate || '',
-        roundNumber: roundNumber || 1
+        roundNumber: roundNumber || 1,
+        fieldCost: fieldCost || 0,
+        fee: fee || 0
       })
     });
     const data = await res.json();
@@ -469,6 +533,37 @@ export const deleteGame = async (token: string, gameId: string): Promise<{succes
   }
 };
 
+export const registerExpense = async (
+  token: string,
+  date: string,
+  description: string,
+  amount: number,
+  photoUrl?: string
+): Promise<{ success: boolean, error?: string }> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      invalidateCache();
+      return { success: true };
+    }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'register_expense',
+        token,
+        date,
+        description,
+        amount,
+        photoUrl: photoUrl || ''
+      })
+    });
+    const data = await res.json();
+    if (data.success) invalidateCache();
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
 export const updateAvatar = async (token: string, base64: string): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
@@ -541,5 +636,9 @@ const mockUsers: UserStats[] = [
 ];
 
 const mockGames: GameStats[] = [
-  { GameID: "1", Data: new Date().toISOString(), Resultado_A: 5, Resultado_B: 4, Equipa_A: ["fmng2000@gmail.com", "joao@example.com"], Equipa_B: ["carlos@example.com", "miguel@example.com"], SessionType: "standard" }
+  { GameID: "1", Data: new Date().toISOString(), Resultado_A: 5, Resultado_B: 4, Equipa_A: ["fmng2000@gmail.com", "joao@example.com"], Equipa_B: ["carlos@example.com", "miguel@example.com"], SessionType: "standard", FieldCost: 20, Fee: 0.5 }
+];
+
+const mockExpenses: Expense[] = [
+  { ExpenseID: "exp_1", Data: new Date().toISOString(), Descricao: "Bola nova e Coletes", Valor: 35.50, RegistadoPor: "fmng2000@gmail.com" }
 ];
