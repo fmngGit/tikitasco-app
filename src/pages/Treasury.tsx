@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchGames, fetchUsers, fetchExpenses, type GameStats, type UserStats, type Expense } from '../services/api';
 import { AddExpenseModal } from '../components/AddExpenseModal';
-import { Wallet, Plus, TrendingDown, TrendingUp, Image as ImageIcon } from 'lucide-react';
+import { Wallet, Plus, TrendingDown, TrendingUp, Image as ImageIcon, Edit2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Treasury = () => {
@@ -11,6 +11,7 @@ export const Treasury = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -41,9 +42,6 @@ export const Treasury = () => {
     if (game.SessionType === 'standard') {
       playersInGame = [...(game.Equipa_A || []), ...(game.Equipa_B || [])];
     } else {
-      // Para Rei da Pista ou Rotação Dinâmica com sessões agregadas, o ideal era ter os players no GameStats raiz.
-      // Neste MVP, assumimos que Equipa_A e Equipa_B do GameStats raiz têm todos os jogadores da sessão se possível,
-      // ou teremos de adaptar. Se não tiverem, usamos apenas o que está lá.
       playersInGame = [...(game.Equipa_A || []), ...(game.Equipa_B || [])];
     }
 
@@ -84,10 +82,16 @@ export const Treasury = () => {
     );
   }
 
+  const handleEditClick = (exp: Expense) => {
+    setEditingExpense(exp);
+    setShowAddExpense(true);
+  };
+
   return (
-    <div className="container animate-fade-in" style={{ padding: '2rem 1.5rem', maxWidth: '1000px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+    <>
+      <div className="container animate-fade-in" style={{ padding: '2rem 1.5rem', maxWidth: '1000px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <h1 style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Wallet style={{ color: 'var(--primary)' }} size={28} />
           Tesouraria / Caixinha
         </h1>
@@ -95,7 +99,10 @@ export const Treasury = () => {
         {token && (
           <button 
             className="btn-primary" 
-            onClick={() => setShowAddExpense(true)}
+            onClick={() => {
+              setEditingExpense(null);
+              setShowAddExpense(true);
+            }}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', fontSize: '0.9rem' }}
           >
             <Plus size={18} /> Registar Despesa
@@ -190,12 +197,13 @@ export const Treasury = () => {
                         )}
                       </div>
                     
-                    {exp.FotoUrl && (
+                    {exp.FotoUrl && exp.FotoUrl.split(',').filter(u => u.trim() !== '').map((url, idx) => (
                       <a 
-                        href={exp.FotoUrl} 
+                        key={idx}
+                        href={url.trim()} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        title="Ver Fatura/Foto"
+                        title={`Ver Anexo ${idx + 1}`}
                         style={{ 
                           background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '6px', 
                           color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'center'
@@ -203,6 +211,19 @@ export const Treasury = () => {
                       >
                         <ImageIcon size={18} />
                       </a>
+                    ))}
+                    
+                    {token && (
+                      <button
+                        onClick={() => handleEditClick(exp)}
+                        title="Editar Despesa"
+                        style={{
+                          background: 'rgba(16, 185, 129, 0.1)', padding: '0.5rem', borderRadius: '6px',
+                          border: 'none', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                      >
+                        <Edit2 size={18} />
+                      </button>
                     )}
                   </div>
                   </div>
@@ -239,16 +260,22 @@ export const Treasury = () => {
           )}
         </div>
       </div>
-
+      </div>
+      
       {showAddExpense && (
         <AddExpenseModal 
-          onClose={() => setShowAddExpense(false)}
+          expense={editingExpense}
+          onClose={() => {
+            setShowAddExpense(false);
+            setEditingExpense(null);
+          }}
           onSuccess={() => {
             setShowAddExpense(false);
+            setEditingExpense(null);
             loadData();
           }}
         />
       )}
-    </div>
+    </>
   );
 };

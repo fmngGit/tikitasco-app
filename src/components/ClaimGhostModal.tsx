@@ -133,14 +133,14 @@ export const ClaimGhostModal: React.FC<ClaimGhostModalProps> = ({ ghostUsers, on
                   width: '100%',
                   padding: '0.75rem',
                   borderRadius: '8px',
-                  background: 'rgba(0,0,0,0.3)',
+                  backgroundColor: 'var(--bg-card)',
                   border: '1px solid var(--border-color)',
                   color: 'var(--text-main)'
                 }}
               >
-                <option value="" disabled>Seleciona o teu nome...</option>
+                <option value="" disabled style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>Seleciona o teu nome...</option>
                 {[...ghostUsers].sort((a, b) => (a.Nome || '').localeCompare(b.Nome || '', 'pt', { sensitivity: 'base' })).map(u => (
-                  <option key={u.Email} value={u.Email}>
+                  <option key={u.Email} value={u.Email} style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>
                     {u.Nome} ({u.Jogos_Jogados} jogos • {u.Pontos_Totais} pts)
                   </option>
                 ))}

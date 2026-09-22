@@ -575,6 +575,43 @@ export const registerExpense = async (
   }
 };
 
+export const editExpense = async (
+  token: string,
+  expenseId: string,
+  date: string,
+  description: string,
+  amount: number,
+  photoUrl?: string,
+  boxAmount?: number,
+  directContributions?: { email: string; amount: number }[]
+): Promise<{ success: boolean, error?: string }> => {
+  try {
+    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+      invalidateCache();
+      return { success: true };
+    }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'edit_expense',
+        token,
+        expenseId,
+        date,
+        description,
+        amount,
+        photoUrl: photoUrl || '',
+        boxAmount: boxAmount !== undefined ? boxAmount : amount,
+        directContributions: directContributions || []
+      })
+    });
+    const data = await res.json();
+    if (data.success) invalidateCache();
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
+  }
+};
+
 export const updateAvatar = async (token: string, base64: string): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {

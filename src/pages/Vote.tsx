@@ -74,10 +74,15 @@ export const Vote = () => {
       <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '2rem' }}>
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Escolher Jogador:</label>
-          <select value={target} onChange={(e) => setTarget(e.target.value)} required>
-            <option value="" disabled>Selecione um jogador...</option>
+          <select 
+            value={target} 
+            onChange={(e) => setTarget(e.target.value)} 
+            required
+            style={{ width: '100%', padding: '0.75rem', backgroundColor: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+          >
+            <option value="" disabled style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>Selecione um jogador...</option>
             {users.map(u => (
-              <option key={u.Email} value={u.Email}>{u.Nome}</option>
+              <option key={u.Email} value={u.Email} style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>{u.Nome}</option>
             ))}
           </select>
         </div>

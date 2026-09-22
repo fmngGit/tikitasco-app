@@ -147,6 +147,10 @@ function doPost(e) {
        const result = registerExpense(params.date, params.description, params.amount, params.photoUrl, userEmail, params.boxAmount, params.directContributions);
        lock.releaseLock();
        return result;
+    } else if (action === "edit_expense") {
+       const result = editExpense(params.expenseId, params.date, params.description, params.amount, params.photoUrl, params.boxAmount, params.directContributions);
+       lock.releaseLock();
+       return result;
     } else if (action === "upload_receipt") {
        const result = uploadReceipt(params.base64, params.filename);
        lock.releaseLock();
@@ -831,6 +835,48 @@ function registerExpense(date, description, amount, photoUrl, registeredBy, boxA
   sheet.appendRow([expenseId, date, description, amount, photoUrl || "", registeredBy, boxAmount, directContributionsStr]);
   
   return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Despesa registada com sucesso" }))
+       .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Função para editar despesa
+function editExpense(expenseId, date, description, amount, photoUrl, boxAmount, directContributions) {
+  let sheet = getSpreadsheet().getSheetByName("Expenses");
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Tabela não encontrada." })).setMimeType(ContentService.MimeType.JSON);
+
+  const data = sheet.getDataRange().getValues();
+  // Assume ExpenseID is in column A (index 0)
+  // Headers: "ExpenseID", "Data", "Descricao", "Valor", "FotoUrl", "RegistadoPor", "ValorCaixa", "ContribuicoesDiretas"
+  const headers = data[0];
+  const dateIdx = headers.indexOf("Data");
+  const descIdx = headers.indexOf("Descricao");
+  const valIdx = headers.indexOf("Valor");
+  const photoIdx = headers.indexOf("FotoUrl");
+  const boxValIdx = headers.indexOf("ValorCaixa");
+  const contribIdx = headers.indexOf("ContribuicoesDiretas");
+
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === expenseId) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Despesa não encontrada." }))
+       .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const directContributionsStr = directContributions ? JSON.stringify(directContributions) : "[]";
+
+  sheet.getRange(rowIndex, dateIdx + 1).setValue(date);
+  sheet.getRange(rowIndex, descIdx + 1).setValue(description);
+  sheet.getRange(rowIndex, valIdx + 1).setValue(amount);
+  sheet.getRange(rowIndex, photoIdx + 1).setValue(photoUrl || "");
+  sheet.getRange(rowIndex, boxValIdx + 1).setValue(boxAmount);
+  sheet.getRange(rowIndex, contribIdx + 1).setValue(directContributionsStr);
+
+  return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Despesa atualizada com sucesso" }))
        .setMimeType(ContentService.MimeType.JSON);
 }
 
