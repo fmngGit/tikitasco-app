@@ -29,7 +29,8 @@ function setupSheets() {
 
   setupSheet("Users", ["Nome", "Email", "Vitorias", "Empates", "Derrotas", "Pontos_Totais", "Jogos_Jogados", "Avatar", "IsGuest", "CreatedBy"]);
   setupSheet("Votes", ["Voter_Email", "Target_Email", "Ataque", "Defesa", "Fisico", "Passe", "Timestamp", "Guarda_Redes", "Fairplay"]);
-  setupSheet("Games", ["GameID", "Data", "Resultado_A", "Resultado_B", "Equipa_A", "Equipa_B", "SessionID", "SessionType", "VideoFileId", "VideoDownloadUrl", "VideoExpiryDate", "RoundNumber"]);
+  setupSheet("Games", ["GameID", "Data", "Resultado_A", "Resultado_B", "Equipa_A", "Equipa_B", "SessionID", "SessionType", "VideoFileId", "VideoDownloadUrl", "VideoExpiryDate", "RoundNumber", "FieldCost", "Fee"]);
+  setupSheet("Expenses", ["ExpenseID", "Data", "Descricao", "Valor", "FotoUrl", "RegistadoPor", "ValorCaixa", "ContribuicoesDiretas"]);
 }
 
 // Obter ou criar a pasta no Google Drive do administrador
@@ -142,6 +143,14 @@ function doPost(e) {
        const result = updateProfile(userEmail, params.name, params.avatar);
        lock.releaseLock();
        return result;
+    } else if (action === "register_expense") {
+       const result = registerExpense(params.date, params.description, params.amount, params.photoUrl, userEmail, params.boxAmount, params.directContributions);
+       lock.releaseLock();
+       return result;
+    } else if (action === "upload_receipt") {
+       const result = uploadReceipt(params.base64, params.filename);
+       lock.releaseLock();
+       return result;
     }
     
     lock.releaseLock();
@@ -160,7 +169,9 @@ function doGet(e) {
   try {
     const action = e.parameter.action;
     
-    if (action === "get_users") {
+    if (action === "get_expenses") {
+       return getExpenses();
+    } else if (action === "get_users") {
        const sheet = getSpreadsheet().getSheetByName("Users");
        const data = sheet.getDataRange().getValues();
        
@@ -595,9 +606,11 @@ function registerGame(params) {
     const videoDownloadUrl = params.videoDownloadUrl || "";
     const videoExpiryDate = params.videoExpiryDate || (videoFileId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : "");
     const roundNumber = params.roundNumber || 1;
+    const fieldCost = params.fieldCost || 0;
+    const fee = params.fee || 0;
 
-    // Colunas: GameID, Data, ResA, ResB, EquipaA, EquipaB, SessionID, SessionType, VideoFileId, VideoDownloadUrl, VideoExpiryDate, RoundNumber
-    sheet.appendRow([gameId, gameDate, params.resA, params.resB, eqA, eqB, sessionId, sessionType, videoFileId, videoDownloadUrl, videoExpiryDate, roundNumber]);
+    // Colunas: GameID, Data, ResA, ResB, EquipaA, EquipaB, SessionID, SessionType, VideoFileId, VideoDownloadUrl, VideoExpiryDate, RoundNumber, FieldCost, Fee
+    sheet.appendRow([gameId, gameDate, params.resA, params.resB, eqA, eqB, sessionId, sessionType, videoFileId, videoDownloadUrl, videoExpiryDate, roundNumber, fieldCost, fee]);
     
     recalculateAllUserStats();
     
@@ -775,3 +788,69 @@ function recalculateAllUserStats() {
       usersSheet.getRange(2, 3, updateMatrix.length, 5).setValues(updateMatrix);
     }
 }
+
+// ==========================================
+// NOVAS FUNÇÕES PARA A TESOURARIA
+// ==========================================
+
+// Função para obter despesas
+function getExpenses() {
+  const sheet = getSpreadsheet().getSheetByName("Expenses");
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ success: true, data: [] }))
+       .setMimeType(ContentService.MimeType.JSON);
+  
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return ContentService.createTextOutput(JSON.stringify({ success: true, data: [] }))
+       .setMimeType(ContentService.MimeType.JSON);
+  
+  const headers = data[0];
+  const result = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    let expense = {};
+    for (let j = 0; j < headers.length; j++) {
+      expense[headers[j]] = data[i][j];
+    }
+    result.push(expense);
+  }
+  return ContentService.createTextOutput(JSON.stringify({ success: true, data: result }))
+       .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Função para registar despesa
+function registerExpense(date, description, amount, photoUrl, registeredBy, boxAmount, directContributions) {
+  let sheet = getSpreadsheet().getSheetByName("Expenses");
+  if (!sheet) {
+    sheet = getSpreadsheet().insertSheet("Expenses");
+    sheet.appendRow(["ExpenseID", "Data", "Descricao", "Valor", "FotoUrl", "RegistadoPor", "ValorCaixa", "ContribuicoesDiretas"]);
+  }
+  
+  const expenseId = "exp_" + new Date().getTime();
+  const directContributionsStr = directContributions ? JSON.stringify(directContributions) : "[]";
+  
+  sheet.appendRow([expenseId, date, description, amount, photoUrl || "", registeredBy, boxAmount, directContributionsStr]);
+  
+  return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Despesa registada com sucesso" }))
+       .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Função para fazer upload da fatura
+function uploadReceipt(base64, filename) {
+  try {
+    const folder = getOrCreateVideoFolder();
+    
+    // Remover o prefixo (ex: data:image/png;base64,)
+    const base64Data = base64.split(",")[1] || base64;
+    const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), "image/jpeg", filename || "fatura.jpg");
+    
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); // Permite visualização
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true, fileUrl: file.getUrl() }))
+       .setMimeType(ContentService.MimeType.JSON);
+  } catch (e) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: e.toString() }))
+       .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+

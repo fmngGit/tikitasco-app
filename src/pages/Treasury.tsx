@@ -56,7 +56,16 @@ export const Treasury = () => {
     });
   });
 
-  const totalExpenses = expenses.reduce((acc, curr) => acc + curr.Valor, 0);
+  expenses.forEach(exp => {
+    if (exp.ContribuicoesDiretas && exp.ContribuicoesDiretas.length > 0) {
+      exp.ContribuicoesDiretas.forEach(c => {
+        if (!playerContributions[c.email]) playerContributions[c.email] = 0;
+        playerContributions[c.email] += c.amount;
+      });
+    }
+  });
+
+  const totalExpenses = expenses.reduce((acc, curr) => acc + (curr.ValorCaixa !== undefined ? curr.ValorCaixa : curr.Valor), 0);
   const currentBalance = totalIncome - totalExpenses;
 
   // Ordenar jogadores por contribuição
@@ -155,10 +164,31 @@ export const Treasury = () => {
                       {new Date(exp.Data).toLocaleDateString('pt-PT')}
                       {exp.RegistadoPor && ` • Registo por ${users.find(u => u.Email === exp.RegistadoPor)?.Nome || exp.RegistadoPor.split('@')[0]}`}
                     </div>
+                    {exp.ContribuicoesDiretas && exp.ContribuicoesDiretas.length > 0 && (
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', background: 'rgba(255,255,255,0.03)', padding: '0.5rem', borderRadius: '4px' }}>
+                        <strong style={{ color: '#10b981' }}>Contribuições extra:</strong>
+                        <ul style={{ margin: '0.25rem 0 0 1rem', padding: 0 }}>
+                          {exp.ContribuicoesDiretas.map((c, i) => {
+                            const pName = users.find(u => u.Email === c.email)?.Nome || c.email.split('@')[0];
+                            return <li key={i}>{pName}: {c.amount.toFixed(2)}€</li>;
+                          })}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                   
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span style={{ fontWeight: 800, color: 'var(--danger)' }}>-{exp.Valor.toFixed(2)}€</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 800, color: 'var(--danger)' }}>
+                          -{(exp.ValorCaixa !== undefined ? exp.ValorCaixa : exp.Valor).toFixed(2)}€
+                        </div>
+                        {exp.ValorCaixa !== undefined && exp.ValorCaixa !== exp.Valor && (
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            (Custo total: {exp.Valor.toFixed(2)}€)
+                          </div>
+                        )}
+                      </div>
                     
                     {exp.FotoUrl && (
                       <a 
@@ -174,6 +204,7 @@ export const Treasury = () => {
                         <ImageIcon size={18} />
                       </a>
                     )}
+                  </div>
                   </div>
                 </div>
               ))}

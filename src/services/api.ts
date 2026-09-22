@@ -45,6 +45,8 @@ export interface Expense {
   Valor: number;
   FotoUrl?: string;
   RegistadoPor?: string;
+  ValorCaixa?: number;
+  ContribuicoesDiretas?: { email: string; amount: number }[];
 }
 
 export interface SessionRound {
@@ -143,10 +145,15 @@ export const fetchExpenses = async (forceRefresh = false): Promise<Expense[]> =>
   try {
     const res = await fetch(`${GAS_URL}?action=get_expenses`);
     const data = await res.json();
-    if (data.success) {
-      expensesCache = data.data;
-      lastExpensesFetch = now;
-      return data.data;
+    if (data.success && Array.isArray(data.data)) {
+      const parsedData = data.data.map((exp: any) => ({
+        ...exp,
+        ValorCaixa: exp.ValorCaixa !== undefined && exp.ValorCaixa !== '' ? Number(exp.ValorCaixa) : Number(exp.Valor),
+        ContribuicoesDiretas: exp.ContribuicoesDiretas ? (typeof exp.ContribuicoesDiretas === 'string' ? JSON.parse(exp.ContribuicoesDiretas) : exp.ContribuicoesDiretas) : []
+      }));
+      expensesCache = parsedData;
+      lastExpensesFetch = Date.now();
+      return parsedData;
     }
     throw new Error(data.error);
   } catch (error) {
@@ -538,7 +545,9 @@ export const registerExpense = async (
   date: string,
   description: string,
   amount: number,
-  photoUrl?: string
+  photoUrl?: string,
+  boxAmount?: number,
+  directContributions?: { email: string; amount: number }[]
 ): Promise<{ success: boolean, error?: string }> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
@@ -553,7 +562,9 @@ export const registerExpense = async (
         date,
         description,
         amount,
-        photoUrl: photoUrl || ''
+        photoUrl: photoUrl || '',
+        boxAmount: boxAmount !== undefined ? boxAmount : amount,
+        directContributions: directContributions || []
       })
     });
     const data = await res.json();
