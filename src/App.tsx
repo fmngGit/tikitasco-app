@@ -10,6 +10,7 @@ import { RegisterGame } from './pages/RegisterGame';
 import { TeamGenerator } from './pages/TeamGenerator';
 import { Profile } from './pages/Profile';
 import { Treasury } from './pages/Treasury';
+import { Locations } from './pages/Locations';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { token } = useAuth();
@@ -33,6 +34,7 @@ const AppRoutes = () => {
           <Route path="/vote" element={<ProtectedRoute><Vote /></ProtectedRoute>} />
           <Route path="/register-game" element={<ProtectedRoute><RegisterGame /></ProtectedRoute>} />
           <Route path="/treasury" element={<ProtectedRoute><Treasury /></ProtectedRoute>} />
+          <Route path="/campos" element={<ProtectedRoute><Locations /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           
           <Route path="*" element={<Navigate to="/" replace />} />

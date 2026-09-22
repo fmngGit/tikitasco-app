@@ -11,8 +11,10 @@ import {
   initiateVideoUpload,
   uploadVideoToDrive,
   finalizeVideoUpload,
+  fetchLocations,
   type UserStats, 
-  type SessionRound 
+  type SessionRound,
+  type Location
 } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Video, Plus, RefreshCw, Trophy, Trash2 } from 'lucide-react';
@@ -27,8 +29,10 @@ export const RegisterGame = () => {
   const editGameId = searchParams.get('edit');
 
   const [users, setUsers] = useState<UserStats[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [modality, setModality] = useState<Modality>('standard');
   const [gameDate, setGameDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [locationId, setLocationId] = useState<string>('');
 
   // Modo Padrão (2 Equipas)
   const [equipaA, setEquipaA] = useState<string[]>([]);
@@ -97,6 +101,8 @@ export const RegisterGame = () => {
       }
     });
 
+    fetchLocations().then(data => setLocations(data));
+
     if (editGameId) {
       fetchGames().then(games => {
         const gameToEdit = games.find(g => g.GameID === editGameId);
@@ -114,6 +120,9 @@ export const RegisterGame = () => {
               downloadUrl: gameToEdit.VideoDownloadUrl,
               expiryDate: gameToEdit.VideoExpiryDate
             });
+          }
+          if (gameToEdit.LocationID) {
+            setLocationId(gameToEdit.LocationID);
           }
         }
       });
@@ -335,7 +344,7 @@ export const RegisterGame = () => {
     try {
       if (editGameId) {
         // Edição de jogo existente
-        const res = await editGame(token, editGameId, gameDate, resA, resB, equipaA, equipaB, finalVideoData || undefined);
+        const res = await editGame(token, editGameId, gameDate, resA, resB, equipaA, equipaB, finalVideoData || undefined, locationId || undefined);
         if (res.success) {
           setMessage({ type: 'success', text: 'Jogo atualizado com sucesso!' });
           setTimeout(() => navigate('/history'), 1500);
@@ -349,7 +358,7 @@ export const RegisterGame = () => {
           setLoading(false);
           return;
         }
-        const res = await registerGame(token, gameDate, resA, resB, equipaA, equipaB, finalVideoData || undefined, undefined, 'standard', 1, fieldCost, playerFee);
+        const res = await registerGame(token, gameDate, resA, resB, equipaA, equipaB, finalVideoData || undefined, undefined, 'standard', 1, fieldCost, playerFee, locationId || undefined);
         if (res.success) {
           setMessage({ type: 'success', text: 'Jogo registado com sucesso! Os pontos foram atualizados.' });
           setTimeout(() => navigate('/history'), 1500);
@@ -373,7 +382,8 @@ export const RegisterGame = () => {
           rounds: rounds,
           videoFileId: finalVideoData?.fileId,
           videoDownloadUrl: finalVideoData?.downloadUrl,
-          videoExpiryDate: finalVideoData?.expiryDate
+          videoExpiryDate: finalVideoData?.expiryDate,
+          locationId: locationId || undefined
         });
 
         if (res.success) {
@@ -404,7 +414,8 @@ export const RegisterGame = () => {
           rounds: rounds,
           videoFileId: finalVideoData?.fileId,
           videoDownloadUrl: finalVideoData?.downloadUrl,
-          videoExpiryDate: finalVideoData?.expiryDate
+          videoExpiryDate: finalVideoData?.expiryDate,
+          locationId: locationId || undefined
         });
 
         if (res.success) {
@@ -489,15 +500,29 @@ export const RegisterGame = () => {
         <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
           
           {/* Data do Jogo */}
-          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700 }}>Data da Partida / Sessão</label>
-            <input 
-              type="date" 
-              value={gameDate} 
-              onChange={e => setGameDate(e.target.value)} 
-              required
-              style={{ maxWidth: '240px', textAlign: 'center', fontSize: '1.1rem', margin: '0 auto' }}
-            />
+          <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Data da Sessão</label>
+                <input type="date" value={gameDate} onChange={(e) => setGameDate(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', backgroundColor: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Campo (Opcional)</label>
+                <select
+                  value={locationId}
+                  onChange={e => setLocationId(e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', backgroundColor: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
+                >
+                  <option value="">Nenhum campo selecionado</option>
+                  {locations.map(loc => (
+                    <option key={loc.LocationID} value={loc.LocationID}>
+                      {loc.Nome} ({loc.PrecoHora.toFixed(2)}€/h)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Custos e Tesouraria */}

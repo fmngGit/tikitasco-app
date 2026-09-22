@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchUsers, updateProfile, type UserStats } from '../services/api';
-import { User, Camera, Save, CheckCircle, AlertCircle, Trophy, Shield, Zap, Sparkles, Award } from 'lucide-react';
+import { User, Camera, Save, CheckCircle, AlertCircle, Trophy, Shield, Zap, Sparkles, Award, LogOut } from 'lucide-react';
 
 export const Profile = () => {
-  const { profile, token, updateProfileState } = useAuth();
+  const { profile, token, updateProfileState, logout } = useAuth();
   const [name, setName] = useState(profile?.name || '');
   const [avatar, setAvatar] = useState<string>(profile?.picture || '');
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -96,21 +96,41 @@ export const Profile = () => {
 
   return (
     <div className="container animate-fade-in" style={{ padding: '2rem 1.5rem', maxWidth: '800px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-        <div style={{
-          background: 'rgba(245, 158, 11, 0.15)',
-          color: 'var(--primary)',
-          padding: '0.65rem',
-          borderRadius: '12px'
-        }}>
-          <User size={26} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.15)',
+            color: 'var(--primary)',
+            padding: '0.65rem',
+            borderRadius: '12px'
+          }}>
+            <User size={26} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>O Meu Perfil</h1>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              Personaliza o teu nome de jogador e foto que surgem nas equipas e classificações.
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>O Meu Perfil</h1>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Personaliza o teu nome de jogador e foto que surgem nas equipas e classificações.
-          </p>
-        </div>
+        
+        <button
+          type="button"
+          onClick={logout}
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: '0.5rem', 
+            padding: '0.5rem 1rem', borderRadius: '8px', 
+            fontSize: '0.9rem', fontWeight: 600,
+            background: 'rgba(239, 68, 68, 0.15)',
+            color: '#ef4444',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            cursor: 'pointer'
+          }}
+          title="Terminar Sessão"
+        >
+          <LogOut size={16} />
+          <span>Sair da Conta</span>
+        </button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginTop: '1.75rem' }}>

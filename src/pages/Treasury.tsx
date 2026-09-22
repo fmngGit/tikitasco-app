@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchGames, fetchUsers, fetchExpenses, type GameStats, type UserStats, type Expense } from '../services/api';
 import { AddExpenseModal } from '../components/AddExpenseModal';
+import { ImageLightbox } from '../components/ImageLightbox';
 import { Wallet, Plus, TrendingDown, TrendingUp, Image as ImageIcon, Edit2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -12,6 +13,10 @@ export const Treasury = () => {
   const [loading, setLoading] = useState(true);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+  // Lightbox
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const loadData = async () => {
     setLoading(true);
@@ -197,20 +202,23 @@ export const Treasury = () => {
                         )}
                       </div>
                     
-                    {exp.FotoUrl && exp.FotoUrl.split(',').filter(u => u.trim() !== '').map((url, idx) => (
-                      <a 
+                    {exp.FotoUrl && exp.FotoUrl.split(',').filter(u => u.trim() !== '').map((_, idx, arr) => (
+                      <button
+                        type="button" 
                         key={idx}
-                        href={url.trim()} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                        onClick={() => {
+                          setLightboxImages(arr);
+                          setLightboxIndex(idx);
+                        }}
                         title={`Ver Anexo ${idx + 1}`}
                         style={{ 
                           background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '6px', 
+                          border: 'none', cursor: 'pointer',
                           color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}
                       >
                         <ImageIcon size={18} />
-                      </a>
+                      </button>
                     ))}
                     
                     {token && (
@@ -274,6 +282,14 @@ export const Treasury = () => {
             setEditingExpense(null);
             loadData();
           }}
+        />
+      )}
+
+      {lightboxImages.length > 0 && (
+        <ImageLightbox 
+          images={lightboxImages} 
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxImages([])} 
         />
       )}
     </>

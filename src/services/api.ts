@@ -36,6 +36,7 @@ export interface GameStats {
   RoundNumber?: number;
   FieldCost?: number;
   Fee?: number;
+  LocationID?: string;
 }
 
 export interface Expense {
@@ -43,11 +44,21 @@ export interface Expense {
   Data: string;
   Descricao: string;
   Valor: number;
-  FotoUrl?: string;
+  FotoUrl?: string; // URLs armazenados (pode ser múltiplos, separados por vírgula)
   RegistadoPor?: string;
   ValorCaixa?: number;
   ContribuicoesDiretas?: { email: string; amount: number }[];
 }
+
+export const getDriveImageUrl = (url: string) => {
+  if (!url) return '';
+  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (match && match[1]) {
+    // Usar o endpoint thumbnail do Drive para evitar problemas de CORS e redirecionamento de download
+    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
+  }
+  return url;
+};
 
 export interface SessionRound {
   resA: number;
@@ -57,19 +68,45 @@ export interface SessionRound {
   roundNumber?: number;
 }
 
+export interface Location {
+  LocationID: string;
+  Nome: string;
+  Morada: string;
+  PrecoHora: number;
+  PrecoBola?: number;
+  PrecoColetes?: number;
+  TipoPiso?: string;
+  Indoor?: number; // 0 ou 1
+  Balnearios?: number; // 0 ou 1
+  TipoFutebol?: string;
+  FotosUrl?: string;
+  RegistadoPor?: string;
+  Telefone?: string;
+  Email?: string;
+  Notas?: string;
+}
+
 // In-memory cache com invalidação inteligente para navegação rápida
 let usersCache: UserStats[] | null = null;
 let gamesCache: GameStats[] | null = null;
 let expensesCache: Expense[] | null = null;
+let locationsCache: Location[] | null = null;
 let lastUsersFetch = 0;
 let lastGamesFetch = 0;
 let lastExpensesFetch = 0;
+let lastLocationsFetch = 0;
 const CACHE_TTL = 30000; // 30 segundos
 
+// Força a renovação dos dados na próxima chamada
 export const invalidateCache = () => {
   usersCache = null;
   gamesCache = null;
   expensesCache = null;
+  locationsCache = null;
+  lastUsersFetch = 0;
+  lastGamesFetch = 0;
+  lastExpensesFetch = 0;
+  lastLocationsFetch = 0;
 };
 
 export const sortUsersByName = <T extends { Nome?: string; name?: string }>(list: T[]): T[] => {
@@ -161,9 +198,43 @@ export const fetchExpenses = async (forceRefresh = false): Promise<Expense[]> =>
   }
 };
 
+export const fetchLocations = async (forceRefresh = false): Promise<Location[]> => {
+  const now = Date.now();
+  if (!forceRefresh && locationsCache && now - lastLocationsFetch < CACHE_TTL) {
+    return locationsCache;
+  }
+
+  if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+    locationsCache = [];
+    return [];
+  }
+  
+  try {
+    const res = await fetch(`${GAS_URL}?action=get_locations`);
+    const data = await res.json();
+    if (data.success && Array.isArray(data.data)) {
+      const parsedData = data.data.map((loc: any) => ({
+        ...loc,
+        PrecoHora: Number(loc.PrecoHora) || 0,
+        PrecoBola: loc.PrecoBola ? Number(loc.PrecoBola) : undefined,
+        PrecoColetes: loc.PrecoColetes ? Number(loc.PrecoColetes) : undefined,
+        Indoor: Number(loc.Indoor),
+        Balnearios: Number(loc.Balnearios)
+      }));
+      locationsCache = parsedData;
+      lastLocationsFetch = Date.now();
+      return parsedData;
+    }
+    throw new Error(data.error);
+  } catch (error) {
+    return locationsCache || [];
+  }
+};
+
 export const registerUser = async (token: string): Promise<boolean> => {
   invalidateCache();
-  return sendPostRequest({ action: 'register_user', token });
+  const result = await sendPostRequest({ action: 'register_user', token });
+  return !!result?.success;
 };
 
 // Criação de jogador convidado / fantasma
@@ -412,7 +483,8 @@ export const registerGame = async (
   sessionType?: 'standard' | 'reidapista' | 'rotacao_dinamica',
   roundNumber?: number,
   fieldCost?: number,
-  fee?: number
+  fee?: number,
+  locationId?: string
 ): Promise<{success: boolean, gameId?: string, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
@@ -436,7 +508,8 @@ export const registerGame = async (
         videoExpiryDate: videoData?.expiryDate || '',
         roundNumber: roundNumber || 1,
         fieldCost: fieldCost || 0,
-        fee: fee || 0
+        fee: fee || 0,
+        locationId: locationId || ''
       })
     });
     const data = await res.json();
@@ -456,6 +529,7 @@ export const registerSession = async (
     videoFileId?: string;
     videoDownloadUrl?: string;
     videoExpiryDate?: string;
+    locationId?: string;
   }
 ): Promise<{ success: boolean, sessionId?: string, error?: string }> => {
   try {
@@ -487,7 +561,8 @@ export const editGame = async (
   resB: number, 
   equipaA: string[], 
   equipaB: string[],
-  videoData?: { fileId?: string, downloadUrl?: string, expiryDate?: string }
+  videoData?: { fileId?: string, downloadUrl?: string, expiryDate?: string },
+  locationId?: string
 ): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
@@ -507,7 +582,8 @@ export const editGame = async (
         equipaB,
         videoFileId: videoData?.fileId,
         videoDownloadUrl: videoData?.downloadUrl,
-        videoExpiryDate: videoData?.expiryDate
+        videoExpiryDate: videoData?.expiryDate,
+        locationId
       })
     });
     const data = await res.json();
@@ -660,17 +736,78 @@ export const updateProfile = async (
   }
 };
 
-const sendPostRequest = async (payload: any): Promise<boolean> => {
-  if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) return true;
+export const registerLocation = async (
+  token: string, 
+  nome: string, 
+  morada: string, 
+  precoHora: number, 
+  precoBola: number | undefined, 
+  precoColetes: number | undefined, 
+  tipoPiso: string, 
+  indoor: boolean, 
+  balnearios: boolean, 
+  tipoFutebol: string, 
+  fotosUrl: string,
+  telefone: string,
+  email: string,
+  notas: string
+): Promise<{ success: boolean, message?: string, error?: string }> => {
+  invalidateCache();
+  return sendPostRequest({
+    action: 'register_location',
+    token, nome, morada, precoHora, precoBola, precoColetes, tipoPiso, indoor, balnearios, tipoFutebol, fotosUrl, telefone, email, notas
+  });
+};
+
+export const editLocation = async (
+  token: string, 
+  locationId: string,
+  nome: string, 
+  morada: string, 
+  precoHora: number, 
+  precoBola: number | undefined, 
+  precoColetes: number | undefined, 
+  tipoPiso: string, 
+  indoor: boolean, 
+  balnearios: boolean, 
+  tipoFutebol: string, 
+  fotosUrl: string,
+  telefone: string,
+  email: string,
+  notas: string
+): Promise<{ success: boolean, message?: string, error?: string }> => {
+  invalidateCache();
+  return sendPostRequest({
+    action: 'edit_location',
+    token, locationId, nome, morada, precoHora, precoBola, precoColetes, tipoPiso, indoor, balnearios, tipoFutebol, fotosUrl, telefone, email, notas
+  });
+};
+
+export const deleteLocation = async (token: string, locationId: string): Promise<{ success: boolean, message?: string, error?: string }> => {
+  invalidateCache();
+  return sendPostRequest({
+    action: 'delete_location',
+    token, locationId
+  });
+};
+
+const sendPostRequest = async (payload: any): Promise<any> => {
+  if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) return { success: true };
   try {
     const res = await fetch(GAS_URL, {
       method: 'POST',
       body: JSON.stringify(payload)
     });
-    const data = await res.json();
-    return data.success;
-  } catch (e) {
-    return false;
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return { success: false, error: "Resposta inválida do servidor." };
+    }
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err.toString() };
   }
 };
 

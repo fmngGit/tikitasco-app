@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchGames, fetchUsers, deleteGame, type GameStats, type UserStats } from '../services/api';
+import { fetchGames, fetchUsers, fetchLocations, deleteGame, type GameStats, type UserStats, type Location } from '../services/api';
 import { Calendar, Edit, Trash2, ChevronDown, ChevronUp, Download, Clock, Trophy, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ interface GameGroup {
   games: GameStats[];
   videoDownloadUrl?: string;
   videoExpiryDate?: string;
+  locationId?: string;
 }
 
 export const History = () => {
@@ -18,13 +19,20 @@ export const History = () => {
   const navigate = useNavigate();
   const [games, setGames] = useState<GameStats[]>([]);
   const [users, setUsers] = useState<UserStats[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
 
+  // Filtros e Ordenação
+  const [sortBy, setSortBy] = useState<'desc' | 'asc'>('desc');
+  const [filterLocation, setFilterLocation] = useState<string>('');
+  const [filterPlayer, setFilterPlayer] = useState<string>('');
+
   useEffect(() => {
-    Promise.all([fetchGames(), fetchUsers()]).then(([gamesData, usersData]) => {
+    Promise.all([fetchGames(), fetchUsers(), fetchLocations()]).then(([gamesData, usersData, locationsData]) => {
       setGames(gamesData);
       setUsers(usersData);
+      setLocations(locationsData);
       setLoading(false);
     });
   }, []);
@@ -84,7 +92,8 @@ export const History = () => {
             date: game.Data,
             games: [],
             videoDownloadUrl: game.VideoDownloadUrl,
-            videoExpiryDate: game.VideoExpiryDate
+            videoExpiryDate: game.VideoExpiryDate,
+            locationId: game.LocationID
           };
           groups.push(sessionMap[game.SessionID]);
         }
@@ -93,6 +102,9 @@ export const History = () => {
           sessionMap[game.SessionID].videoDownloadUrl = game.VideoDownloadUrl;
           sessionMap[game.SessionID].videoExpiryDate = game.VideoExpiryDate;
         }
+        if (game.LocationID && !sessionMap[game.SessionID].locationId) {
+          sessionMap[game.SessionID].locationId = game.LocationID;
+        }
       } else {
         // Jogo individual padrão
         groups.push({
@@ -100,7 +112,8 @@ export const History = () => {
           date: game.Data,
           games: [game],
           videoDownloadUrl: game.VideoDownloadUrl,
-          videoExpiryDate: game.VideoExpiryDate
+          videoExpiryDate: game.VideoExpiryDate,
+          locationId: game.LocationID
         });
       }
     });
@@ -159,30 +172,103 @@ export const History = () => {
 
   const groups = groupedSessions();
 
+  let filteredGroups = [...groups];
+
+  // Ordenação
+  if (sortBy === 'asc') {
+    filteredGroups.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  } else {
+    filteredGroups.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  // Filtro de Campo
+  if (filterLocation) {
+    filteredGroups = filteredGroups.filter(g => g.locationId === filterLocation);
+  }
+
+  // Filtro de Jogador
+  if (filterPlayer) {
+    filteredGroups = filteredGroups.filter(g => {
+      return g.games.some(game => 
+        game.Equipa_A?.includes(filterPlayer) || game.Equipa_B?.includes(filterPlayer)
+      );
+    });
+  }
+
   return (
     <div className="container animate-fade-in" style={{ padding: '2rem 1.5rem', maxWidth: '850px' }}>
       <h1 style={{ marginBottom: '2rem' }}>Histórico de Jogos</h1>
 
+      {/* Filtros */}
+      <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ flex: '1 1 200px' }}>
+          <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>Ordenar por Data</label>
+          <select 
+            value={sortBy} 
+            onChange={e => setSortBy(e.target.value as any)}
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
+          >
+            <option value="desc" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>Mais recentes primeiro</option>
+            <option value="asc" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>Mais antigos primeiro</option>
+          </select>
+        </div>
+
+        <div style={{ flex: '1 1 200px' }}>
+          <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>Filtrar por Campo</label>
+          <select 
+            value={filterLocation} 
+            onChange={e => setFilterLocation(e.target.value)}
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
+          >
+            <option value="" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>Todos os Campos</option>
+            {locations.map(loc => (
+              <option key={loc.LocationID} value={loc.LocationID} style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>{loc.Nome}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ flex: '1 1 200px' }}>
+          <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>Filtrar por Jogador</label>
+          <select 
+            value={filterPlayer} 
+            onChange={e => setFilterPlayer(e.target.value)}
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
+          >
+            <option value="" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>Todos os Jogadores</option>
+            {[...users].sort((a,b) => a.Nome.localeCompare(b.Nome)).map(user => (
+              <option key={user.Email} value={user.Email} style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-main)' }}>{user.Nome}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>A carregar histórico...</div>
-      ) : groups.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>Ainda não há jogos registados.</div>
+      ) : filteredGroups.length === 0 ? (
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>Não foram encontrados jogos com estes filtros.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {groups.map((group, groupIdx) => {
+          {filteredGroups.map((group, groupIdx) => {
             const isMultiGame = group.games.length > 1 || group.sessionType !== 'standard';
             const sessionKey = group.sessionId || `single-${groupIdx}`;
             const isExpanded = expandedSessions[sessionKey] !== false; // expandido por defeito
+            const locName = locations.find(l => l.LocationID === group.locationId)?.Nome;
 
             return (
               <div key={sessionKey} className="glass-panel" style={{ padding: '1.5rem' }}>
                 {/* Cabeçalho da Sessão ou Jogo */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                       <Calendar size={16} />
                       {new Date(group.date).toLocaleDateString('pt-PT', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                     </div>
+
+                    {locName && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981', fontSize: '0.85rem', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '6px' }}>
+                        📍 {locName}
+                      </div>
+                    )}
 
                     {group.sessionType === 'reidapista' && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.75rem', color: 'var(--primary)', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>

@@ -29,8 +29,9 @@ function setupSheets() {
 
   setupSheet("Users", ["Nome", "Email", "Vitorias", "Empates", "Derrotas", "Pontos_Totais", "Jogos_Jogados", "Avatar", "IsGuest", "CreatedBy"]);
   setupSheet("Votes", ["Voter_Email", "Target_Email", "Ataque", "Defesa", "Fisico", "Passe", "Timestamp", "Guarda_Redes", "Fairplay"]);
-  setupSheet("Games", ["GameID", "Data", "Resultado_A", "Resultado_B", "Equipa_A", "Equipa_B", "SessionID", "SessionType", "VideoFileId", "VideoDownloadUrl", "VideoExpiryDate", "RoundNumber", "FieldCost", "Fee"]);
+  setupSheet("Games", ["GameID", "Data", "Resultado_A", "Resultado_B", "Equipa_A", "Equipa_B", "SessionID", "SessionType", "VideoFileId", "VideoDownloadUrl", "VideoExpiryDate", "RoundNumber", "FieldCost", "Fee", "LocationID"]);
   setupSheet("Expenses", ["ExpenseID", "Data", "Descricao", "Valor", "FotoUrl", "RegistadoPor", "ValorCaixa", "ContribuicoesDiretas"]);
+  setupSheet("Locations", ["LocationID", "Nome", "Morada", "PrecoHora", "PrecoBola", "PrecoColetes", "TipoPiso", "Indoor", "Balnearios", "TipoFutebol", "FotosUrl", "RegistadoPor", "Telefone", "Email", "Notas"]);
 }
 
 // Obter ou criar a pasta no Google Drive do administrador
@@ -155,6 +156,18 @@ function doPost(e) {
        const result = uploadReceipt(params.base64, params.filename);
        lock.releaseLock();
        return result;
+    } else if (action === "register_location") {
+       const result = registerLocation(params);
+       lock.releaseLock();
+       return result;
+    } else if (action === "edit_location") {
+       const result = editLocation(params);
+       lock.releaseLock();
+       return result;
+    } else if (action === "delete_location") {
+       const result = deleteLocation(params.locationId);
+       lock.releaseLock();
+       return result;
     }
     
     lock.releaseLock();
@@ -175,6 +188,8 @@ function doGet(e) {
     
     if (action === "get_expenses") {
        return getExpenses();
+    } else if (action === "get_locations") {
+       return getLocations();
     } else if (action === "get_users") {
        const sheet = getSpreadsheet().getSheetByName("Users");
        const data = sheet.getDataRange().getValues();
@@ -612,9 +627,10 @@ function registerGame(params) {
     const roundNumber = params.roundNumber || 1;
     const fieldCost = params.fieldCost || 0;
     const fee = params.fee || 0;
+    const locationId = params.locationId || "";
 
-    // Colunas: GameID, Data, ResA, ResB, EquipaA, EquipaB, SessionID, SessionType, VideoFileId, VideoDownloadUrl, VideoExpiryDate, RoundNumber, FieldCost, Fee
-    sheet.appendRow([gameId, gameDate, params.resA, params.resB, eqA, eqB, sessionId, sessionType, videoFileId, videoDownloadUrl, videoExpiryDate, roundNumber, fieldCost, fee]);
+    // Colunas: GameID, Data, ResA, ResB, EquipaA, EquipaB, SessionID, SessionType, VideoFileId, VideoDownloadUrl, VideoExpiryDate, RoundNumber, FieldCost, Fee, LocationID
+    sheet.appendRow([gameId, gameDate, params.resA, params.resB, eqA, eqB, sessionId, sessionType, videoFileId, videoDownloadUrl, videoExpiryDate, roundNumber, fieldCost, fee, locationId]);
     
     recalculateAllUserStats();
     
@@ -654,7 +670,10 @@ function registerSession(params) {
         videoFileId, 
         videoDownloadUrl, 
         videoExpiryDate, 
-        idx + 1
+        idx + 1,
+        0, 
+        0,
+        params.locationId || ""
       ]);
     });
 
@@ -696,6 +715,13 @@ function editGame(params) {
       sheet.getRange(rowIndex, 9).setValue(params.videoFileId);
       sheet.getRange(rowIndex, 10).setValue(params.videoDownloadUrl || "");
       sheet.getRange(rowIndex, 11).setValue(params.videoExpiryDate || "");
+    }
+    
+    if (params.locationId !== undefined) {
+      const headers = data[0];
+      const getIdx = (name) => headers.indexOf(name);
+      const col = getIdx("LocationID") + 1;
+      if (col > 0) sheet.getRange(rowIndex, col).setValue(params.locationId);
     }
     
     recalculateAllUserStats();
@@ -900,3 +926,117 @@ function uploadReceipt(base64, filename) {
   }
 }
 
+
+// ======= LOCATIONS (CAMPOS) =======
+
+function getLocations() {
+  const sheet = getSpreadsheet().getSheetByName("Locations");
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ success: true, data: [] })).setMimeType(ContentService.MimeType.JSON);
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({ success: true, data: [] })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const headers = data[0];
+  const result = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const loc = {};
+    headers.forEach((header, index) => {
+      loc[header] = row[index];
+    });
+    result.push(loc);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ success: true, data: result }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function registerLocation(params) {
+  let sheet = getSpreadsheet().getSheetByName("Locations");
+  if (!sheet) {
+    sheet = getSpreadsheet().insertSheet("Locations");
+    sheet.appendRow(["LocationID", "Nome", "Morada", "PrecoHora", "PrecoBola", "PrecoColetes", "TipoPiso", "Indoor", "Balnearios", "TipoFutebol", "FotosUrl", "RegistadoPor", "Telefone", "Email", "Notas"]);
+  }
+  
+  const locationId = "loc_" + new Date().getTime();
+  
+  sheet.appendRow([
+    locationId, 
+    params.nome, 
+    params.morada, 
+    params.precoHora, 
+    params.precoBola, 
+    params.precoColetes, 
+    params.tipoPiso, 
+    params.indoor ? 1 : 0, 
+    params.balnearios ? 1 : 0, 
+    params.tipoFutebol, 
+    params.fotosUrl || "", 
+    params.token,
+    params.telefone || "",
+    params.email || "",
+    params.notas || ""
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Local registado com sucesso" }))
+       .setMimeType(ContentService.MimeType.JSON);
+}
+
+function editLocation(params) {
+  let sheet = getSpreadsheet().getSheetByName("Locations");
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Tabela não encontrada." })).setMimeType(ContentService.MimeType.JSON);
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const getIdx = (name) => headers.indexOf(name);
+
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === params.locationId) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Local não encontrado." }))
+       .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  sheet.getRange(rowIndex, getIdx("Nome") + 1).setValue(params.nome);
+  sheet.getRange(rowIndex, getIdx("Morada") + 1).setValue(params.morada);
+  sheet.getRange(rowIndex, getIdx("PrecoHora") + 1).setValue(params.precoHora);
+  sheet.getRange(rowIndex, getIdx("PrecoBola") + 1).setValue(params.precoBola);
+  sheet.getRange(rowIndex, getIdx("PrecoColetes") + 1).setValue(params.precoColetes);
+  sheet.getRange(rowIndex, getIdx("TipoPiso") + 1).setValue(params.tipoPiso);
+  sheet.getRange(rowIndex, getIdx("Indoor") + 1).setValue(params.indoor ? 1 : 0);
+  sheet.getRange(rowIndex, getIdx("Balnearios") + 1).setValue(params.balnearios ? 1 : 0);
+  sheet.getRange(rowIndex, getIdx("TipoFutebol") + 1).setValue(params.tipoFutebol);
+  sheet.getRange(rowIndex, getIdx("FotosUrl") + 1).setValue(params.fotosUrl || "");
+  
+  if (getIdx("Telefone") !== -1) sheet.getRange(rowIndex, getIdx("Telefone") + 1).setValue(params.telefone || "");
+  if (getIdx("Email") !== -1) sheet.getRange(rowIndex, getIdx("Email") + 1).setValue(params.email || "");
+  if (getIdx("Notas") !== -1) sheet.getRange(rowIndex, getIdx("Notas") + 1).setValue(params.notas || "");
+
+  return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Local atualizado com sucesso" }))
+       .setMimeType(ContentService.MimeType.JSON);
+}
+
+function deleteLocation(locationId) {
+  const sheet = getSpreadsheet().getSheetByName("Locations");
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Tabela não encontrada" })).setMimeType(ContentService.MimeType.JSON);
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === locationId) {
+      sheet.deleteRow(i + 1);
+      return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Local eliminado." })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Local não encontrado." })).setMimeType(ContentService.MimeType.JSON);
+}

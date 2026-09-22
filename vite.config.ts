@@ -5,4 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ command }) => ({
   plugins: [react()],
   base: command === 'build' ? '/tikitasco-app/' : '/',
+  build: {
+    chunkSizeWarningLimit: 1500
+  }
 }))
