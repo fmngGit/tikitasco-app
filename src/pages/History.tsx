@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { fetchGames, fetchUsers, fetchLocations, deleteGame, type GameStats, type UserStats, type Location } from '../services/api';
-import { Calendar, Edit, Trash2, ChevronDown, ChevronUp, Download, Clock, Trophy, RefreshCw } from 'lucide-react';
+import { Calendar, Edit, Trash2, ChevronDown, ChevronUp, Download, Clock, Trophy, RefreshCw, List, PlayCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { PollSection } from '../components/PollSection';
 
 interface GameGroup {
   sessionId?: string;
@@ -24,6 +25,7 @@ export const History = () => {
   const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
 
   // Filtros e Ordenação
+  const [activeTab, setActiveTab] = useState<'poll' | 'history'>('poll');
   const [sortBy, setSortBy] = useState<'desc' | 'asc'>('desc');
   const [filterLocation, setFilterLocation] = useState<string>('');
   const [filterPlayer, setFilterPlayer] = useState<string>('');
@@ -197,9 +199,56 @@ export const History = () => {
 
   return (
     <div className="container animate-fade-in" style={{ padding: '2rem 1.5rem', maxWidth: '850px' }}>
-      <h1 style={{ marginBottom: '2rem' }}>Histórico de Jogos</h1>
+      
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '12px' }}>
+        <button
+          onClick={() => setActiveTab('poll')}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem',
+            background: activeTab === 'poll' ? 'var(--primary)' : 'transparent',
+            color: activeTab === 'poll' ? '#fff' : 'var(--text-muted)',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: activeTab === 'poll' ? 'bold' : 'normal',
+            transition: 'all 0.2s'
+          }}
+        >
+          <PlayCircle size={18} /> Próximo Jogo
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem',
+            background: activeTab === 'history' ? 'rgba(255,255,255,0.1)' : 'transparent',
+            color: activeTab === 'history' ? '#fff' : 'var(--text-muted)',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: activeTab === 'history' ? 'bold' : 'normal',
+            transition: 'all 0.2s'
+          }}
+        >
+          <List size={18} /> Jogos Realizados
+        </button>
+      </div>
 
-      {/* Filtros */}
+      {activeTab === 'poll' ? (
+        <PollSection locations={locations} users={users} />
+      ) : (
+        <>
+          {/* Filtros */}
       <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ flex: '1 1 200px' }}>
           <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>Ordenar por Data</label>
@@ -346,6 +395,8 @@ export const History = () => {
             );
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   );

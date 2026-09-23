@@ -427,6 +427,26 @@ input[type=number] {
   z-index: 1000;
 }
 
+.navbar-more-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -1rem;
+  left: 0;
+  right: 0;
+  height: 1rem;
+  background: transparent;
+}
+
+.navbar-more-dropdown::after {
+  content: '';
+  position: absolute;
+  bottom: -1rem;
+  left: 0;
+  right: 0;
+  height: 1rem;
+  background: transparent;
+}
+
 .more-dropdown-item {
   display: flex;
   align-items: center;
@@ -453,10 +473,12 @@ input[type=number] {
 .show-only-mobile { display: none !important; }
 .show-only-tablet { display: none !important; }
 
-@media (max-width: 980px) {
+@media (max-width: 1200px) {
   .hide-on-tablet { display: none !important; }
   .show-only-tablet { display: flex !important; }
-  
+}
+
+@media (max-width: 980px) {
   .navbar-profile-name {
     display: none;
   }
@@ -543,6 +565,9 @@ input[type=number] {
     border-radius: 8px !important;
     flex: 1;
     justify-content: center;
+  }
+  .navbar-more-container {
+    position: static !important;
   }
   .navbar-more-dropdown {
     top: auto !important;

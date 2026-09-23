@@ -32,6 +32,7 @@ function setupSheets() {
   setupSheet("Games", ["GameID", "Data", "Resultado_A", "Resultado_B", "Equipa_A", "Equipa_B", "SessionID", "SessionType", "VideoFileId", "VideoDownloadUrl", "VideoExpiryDate", "RoundNumber", "FieldCost", "Fee", "LocationID"]);
   setupSheet("Expenses", ["ExpenseID", "Data", "Descricao", "Valor", "FotoUrl", "RegistadoPor", "ValorCaixa", "ContribuicoesDiretas"]);
   setupSheet("Locations", ["LocationID", "Nome", "Morada", "PrecoHora", "PrecoBola", "PrecoColetes", "TipoPiso", "Indoor", "Balnearios", "TipoFutebol", "FotosUrl", "RegistadoPor", "Telefone", "Email", "Notas"]);
+  setupSheet("Polls", ["TargetWeek", "UserEmail", "Monday", "Tuesday", "Wednesday", "Thursday", "Locations", "Timestamp"]);
 }
 
 // Obter ou criar a pasta no Google Drive do administrador
@@ -168,6 +169,10 @@ function doPost(e) {
        const result = deleteLocation(params.locationId);
        lock.releaseLock();
        return result;
+    } else if (action === "submit_poll") {
+       const result = submitPoll(userEmail, params);
+       lock.releaseLock();
+       return result;
     }
     
     lock.releaseLock();
@@ -190,6 +195,8 @@ function doGet(e) {
        return getExpenses();
     } else if (action === "get_locations") {
        return getLocations();
+    } else if (action === "get_polls") {
+       return getPolls(e.parameter.weekId);
     } else if (action === "get_users") {
        const sheet = getSpreadsheet().getSheetByName("Users");
        const data = sheet.getDataRange().getValues();
@@ -1039,4 +1046,99 @@ function deleteLocation(locationId) {
   }
 
   return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Local não encontrado." })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// -------------------------------------------------------------
+// POLLS (Agendamento Semanal)
+// -------------------------------------------------------------
+
+function submitPoll(userEmail, params) {
+  let sheet = getSpreadsheet().getSheetByName("Polls");
+  if (!sheet) {
+    sheet = getSpreadsheet().insertSheet("Polls");
+    sheet.appendRow(["TargetWeek", "UserEmail", "Monday", "Tuesday", "Wednesday", "Thursday", "Locations", "Timestamp"]);
+  }
+
+  const { targetWeek, monday, tuesday, wednesday, thursday, locations } = params;
+  if (!targetWeek || !userEmail) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Parâmetros em falta" })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const data = sheet.getDataRange().getValues();
+  let rowIndex = -1;
+  
+  // Encontrar se já existe voto deste utilizador para esta semana
+  for (let i = 1; i < data.length; i++) {
+    let weekVal = data[i][0];
+    if (weekVal instanceof Date) {
+      // Formata a data para a string esperada YYYY-MM-DD
+      weekVal = Utilities.formatDate(weekVal, "GMT", "yyyy-MM-dd");
+    }
+    
+    if (weekVal === targetWeek && data[i][1] === userEmail) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  const timestamp = new Date().toISOString();
+
+  if (rowIndex === -1) {
+    // Inserir novo voto. Adiciona um apóstrofo para forçar a ser texto no Sheets
+    sheet.appendRow(["'" + targetWeek, userEmail, JSON.stringify(monday), JSON.stringify(tuesday), JSON.stringify(wednesday), JSON.stringify(thursday), JSON.stringify(locations), timestamp]);
+  } else {
+    // Atualizar voto existente
+    sheet.getRange(rowIndex, 3).setValue(JSON.stringify(monday));
+    sheet.getRange(rowIndex, 4).setValue(JSON.stringify(tuesday));
+    sheet.getRange(rowIndex, 5).setValue(JSON.stringify(wednesday));
+    sheet.getRange(rowIndex, 6).setValue(JSON.stringify(thursday));
+    sheet.getRange(rowIndex, 7).setValue(JSON.stringify(locations));
+    sheet.getRange(rowIndex, 8).setValue(timestamp);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Voto registado com sucesso" })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getPolls(targetWeek) {
+  const sheet = getSpreadsheet().getSheetByName("Polls");
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ success: true, data: [] })).setMimeType(ContentService.MimeType.JSON);
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({ success: true, data: [] })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const result = [];
+  const headers = data[0];
+  
+  const getIdx = (name) => headers.indexOf(name);
+
+  for (let i = 1; i < data.length; i++) {
+    let weekVal = data[i][getIdx("TargetWeek")];
+    if (weekVal instanceof Date) {
+      weekVal = Utilities.formatDate(weekVal, "GMT", "yyyy-MM-dd");
+    }
+    // Remover possível apóstrofo se lido como string
+    if (typeof weekVal === 'string' && weekVal.startsWith("'")) {
+      weekVal = weekVal.substring(1);
+    }
+
+    if (!targetWeek || weekVal === targetWeek) {
+      let vote = {
+        TargetWeek: weekVal,
+        UserEmail: data[i][getIdx("UserEmail")],
+        Timestamp: data[i][getIdx("Timestamp")]
+      };
+
+      try { vote.Monday = JSON.parse(data[i][getIdx("Monday")] || "[]"); } catch(e) { vote.Monday = []; }
+      try { vote.Tuesday = JSON.parse(data[i][getIdx("Tuesday")] || "[]"); } catch(e) { vote.Tuesday = []; }
+      try { vote.Wednesday = JSON.parse(data[i][getIdx("Wednesday")] || "[]"); } catch(e) { vote.Wednesday = []; }
+      try { vote.Thursday = JSON.parse(data[i][getIdx("Thursday")] || "[]"); } catch(e) { vote.Thursday = []; }
+      try { vote.Locations = JSON.parse(data[i][getIdx("Locations")] || "[]"); } catch(e) { vote.Locations = []; }
+
+      result.push(vote);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ success: true, data: result })).setMimeType(ContentService.MimeType.JSON);
 }

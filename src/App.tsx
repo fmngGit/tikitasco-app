@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Login } from './pages/Login';
 import { Leaderboard } from './pages/Leaderboard';
-import { History } from './pages/History';
+import { History as Agenda } from './pages/History';
 import { Vote } from './pages/Vote';
 import { RegisterGame } from './pages/RegisterGame';
 import { TeamGenerator } from './pages/TeamGenerator';
@@ -29,7 +29,7 @@ const AppRoutes = () => {
           <Route path="/login" element={!token ? <Login /> : <Navigate to="/" replace />} />
           
           <Route path="/" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-          <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+          <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
           <Route path="/teams" element={<ProtectedRoute><TeamGenerator /></ProtectedRoute>} />
           <Route path="/vote" element={<ProtectedRoute><Vote /></ProtectedRoute>} />
           <Route path="/register-game" element={<ProtectedRoute><RegisterGame /></ProtectedRoute>} />

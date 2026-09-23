@@ -86,15 +86,29 @@ export interface Location {
   Notas?: string;
 }
 
+export interface PollVote {
+  TargetWeek: string;
+  UserEmail: string;
+  Timestamp?: string;
+  Monday: string[];
+  Tuesday: string[];
+  Wednesday: string[];
+  Thursday: string[];
+  Locations: string[];
+}
+
 // In-memory cache com invalidação inteligente para navegação rápida
 let usersCache: UserStats[] | null = null;
 let gamesCache: GameStats[] | null = null;
 let expensesCache: Expense[] | null = null;
 let locationsCache: Location[] | null = null;
+let pollsCache: Record<string, PollVote[]> = {};
+
 let lastUsersFetch = 0;
 let lastGamesFetch = 0;
 let lastExpensesFetch = 0;
 let lastLocationsFetch = 0;
+let lastPollsFetch: Record<string, number> = {};
 const CACHE_TTL = 30000; // 30 segundos
 
 // Força a renovação dos dados na próxima chamada
@@ -103,10 +117,12 @@ export const invalidateCache = () => {
   gamesCache = null;
   expensesCache = null;
   locationsCache = null;
+  pollsCache = {};
   lastUsersFetch = 0;
   lastGamesFetch = 0;
   lastExpensesFetch = 0;
   lastLocationsFetch = 0;
+  lastPollsFetch = {};
 };
 
 export const sortUsersByName = <T extends { Nome?: string; name?: string }>(list: T[]): T[] => {
@@ -798,17 +814,54 @@ const sendPostRequest = async (payload: any): Promise<any> => {
       method: 'POST',
       body: JSON.stringify(payload)
     });
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return { success: false, error: "Resposta inválida do servidor." };
-    }
-    return data;
-  } catch (err: any) {
-    return { success: false, error: err.toString() };
+    return await res.json();
+  } catch (error: any) {
+    return { success: false, error: error.toString() };
   }
+};
+
+
+export const fetchPolls = async (weekId: string, forceRefresh = false): Promise<PollVote[]> => {
+  const now = Date.now();
+  if (!forceRefresh && pollsCache[weekId] && now - (lastPollsFetch[weekId] || 0) < CACHE_TTL) {
+    return pollsCache[weekId];
+  }
+
+  if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
+    return [];
+  }
+  
+  try {
+    const res = await fetch(`${GAS_URL}?action=get_polls&weekId=${encodeURIComponent(weekId)}`);
+    const data = await res.json();
+    if (data.success) {
+      pollsCache[weekId] = data.data || [];
+      lastPollsFetch[weekId] = now;
+      return pollsCache[weekId];
+    }
+    throw new Error(data.error);
+  } catch (error) {
+    return pollsCache[weekId] || [];
+  }
+};
+
+export const submitPollVote = async (
+  token: string, 
+  targetWeek: string, 
+  monday: string[], 
+  tuesday: string[], 
+  wednesday: string[], 
+  thursday: string[], 
+  locations: string[]
+): Promise<{ success: boolean, message?: string, error?: string }> => {
+  // Invalidar a cache daquela semana especificamente
+  pollsCache[targetWeek] = null as any; 
+  lastPollsFetch[targetWeek] = 0;
+  
+  return sendPostRequest({
+    action: 'submit_poll',
+    token, targetWeek, monday, tuesday, wednesday, thursday, locations
+  });
 };
 
 // Mock Data for offline testing

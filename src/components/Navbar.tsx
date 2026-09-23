@@ -72,7 +72,7 @@ export const Navbar = () => {
       fetchUsers().then(users => {
         const u = users.find(x => x.Email === profile.email);
         if (u && u.Avatar) setRealAvatar(u.Avatar);
-        
+
         // Filtrar convidados disponíveis para reivindicação
         const guests = users.filter(x => x.IsGuest);
         setGhostUsers(guests);
@@ -94,15 +94,15 @@ export const Navbar = () => {
             <img src={logoUrl} alt="TikiTasco Logo" className="navbar-logo-img" />
             <div className="navbar-logo-text">Tiki<span>Tasco</span></div>
           </Link>
-          
+
           <nav className="navbar-links-container">
             <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>
               <Trophy size={16} />
               <span>Classificação</span>
             </Link>
-            <Link to="/history" className={`nav-link ${location.pathname === '/history' ? 'active' : ''}`}>
+            <Link to="/agenda" className={`nav-link ${location.pathname === '/agenda' ? 'active' : ''}`}>
               <Calendar size={16} />
-              <span>Histórico</span>
+              <span>Agenda</span>
             </Link>
             <Link to="/teams" className={`nav-link ${location.pathname === '/teams' ? 'active' : ''}`}>
               <Users size={16} />
@@ -124,7 +124,7 @@ export const Navbar = () => {
               <MapPin size={16} />
               <span>Campos</span>
             </Link>
-            
+
             <div 
               className="navbar-more-container" 
               ref={moreMenuRef}
@@ -134,12 +134,15 @@ export const Navbar = () => {
               <button 
                 type="button"
                 className={`nav-link nav-more-btn ${showMoreMenu ? 'active' : ''}`} 
-                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowMoreMenu(prev => !prev);
+                }}
               >
                 {showMoreMenu ? <X size={16} /> : <Menu size={16} />}
                 <span>Mais</span>
               </button>
-              
+
               {showMoreMenu && (
                 <div className="navbar-more-dropdown glass-panel">
                   <Link to="/register-game" className="more-dropdown-item show-only-mobile" onClick={() => setShowMoreMenu(false)}>
@@ -154,14 +157,14 @@ export const Navbar = () => {
                     <MapPin size={16} />
                     <span>Campos</span>
                   </Link>
-                  
+
                   {ghostUsers.length > 0 && (
                     <button className="more-dropdown-item" onClick={() => { setShowClaimModal(true); setShowMoreMenu(false); }}>
                       <UserPlus size={16} />
-                      <span>Reivindicar Convidado</span>
+                      <span>Reivindicar Jogador Convidado</span>
                     </button>
                   )}
-                  
+
                   {canInstall && (
                     <button className="more-dropdown-item" onClick={() => { handleInstallClick(); setShowMoreMenu(false); }}>
                       <Smartphone size={16} />
@@ -176,7 +179,7 @@ export const Navbar = () => {
           <div className="navbar-user-area">
             {/* Movidos para o menu Mais */}
 
-            <Link 
+            <Link
               to="/profile"
               className={`navbar-profile-pill ${location.pathname === '/profile' ? 'active' : ''}`}
               title="Personalizar Perfil (Nome e Foto)"
