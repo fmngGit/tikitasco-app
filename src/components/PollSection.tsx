@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { fetchPolls, submitPollVote, type PollVote, type Location, type UserStats } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Share2, Clock, MapPin, Users, Check, AlertCircle } from 'lucide-react';
@@ -120,13 +120,30 @@ export const PollSection: React.FC<PollSectionProps> = ({ locations, users }) =>
   };
 
   const shareOnWhatsApp = () => {
-    const url = window.location.origin + "/#/agenda";
+    const url = window.location.href.split('#')[0] + "#/agenda";
     const text = `Votação semana ${getFormattedDateRange()}:\n${url}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
 
-  // Algoritmo: Encontrar os melhores slots agrupados por Dia/Hora
-  const calculateGroupedSlots = () => {
+  const getFormattedDayName = (dayName: string, offset: number) => {
+    const d = new Date(targetWeek);
+    d.setDate(d.getDate() + offset);
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    return `${dayName} (${day}/${month})`;
+  };
+
+  const isDayInPast = (offset: number) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetDate = new Date(targetWeek);
+    targetDate.setDate(targetDate.getDate() + offset);
+    targetDate.setHours(0, 0, 0, 0);
+    return targetDate.getTime() < today.getTime();
+  };
+
+  // Algoritmo: Encontrar os melhores slots agrupados por Dia/Hora (Fase 3.3: useMemo)
+  const groupedSlots = useMemo(() => {
     const days = ["Segunda", "Terça", "Quarta", "Quinta"];
     const hours = ["19:00", "20:00", "21:00", "22:00"];
     
@@ -172,26 +189,7 @@ export const PollSection: React.FC<PollSectionProps> = ({ locations, users }) =>
       if (maxLocB !== maxLocA) return maxLocB - maxLocA;
       return b.users.length - a.users.length;
     });
-  };
-
-  const getFormattedDayName = (dayName: string, offset: number) => {
-    const d = new Date(targetWeek);
-    d.setDate(d.getDate() + offset);
-    const day = d.getDate().toString().padStart(2, '0');
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    return `${dayName} (${day}/${month})`;
-  };
-
-  const isDayInPast = (offset: number) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const targetDate = new Date(targetWeek);
-    targetDate.setDate(targetDate.getDate() + offset);
-    targetDate.setHours(0, 0, 0, 0);
-    return targetDate.getTime() < today.getTime();
-  };
-
-  const groupedSlots = calculateGroupedSlots();
+  }, [polls, targetWeek]);
 
   const DayGrid = ({ title, state, setter, disabledDay }: { title: string, state: string[], setter: React.Dispatch<React.SetStateAction<string[]>>, disabledDay?: boolean }) => {
     const isGridDisabled = cannotPlay || disabledDay;

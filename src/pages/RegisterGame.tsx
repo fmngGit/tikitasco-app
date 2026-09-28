@@ -17,7 +17,10 @@ import {
   type Location
 } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Video, Plus, RefreshCw, Trophy, Trash2 } from 'lucide-react';
+import { Video } from 'lucide-react';
+import { StandardGameForm } from '../components/game-forms/StandardGameForm';
+import { KingOfTheCourtForm } from '../components/game-forms/KingOfTheCourtForm';
+import { RotationGameForm } from '../components/game-forms/RotationGameForm';
 
 type Modality = 'standard' | 'reidapista' | 'rotacao_dinamica';
 
@@ -576,440 +579,48 @@ export const RegisterGame = () => {
 
           {/* ======================= MODALIDADE 1: PADRÃO ======================= */}
           {modality === 'standard' && (
-            <>
-              {/* Placar de Golos Centralizado e Compacto */}
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.75rem', marginBottom: '2.5rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
-                  <label style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Equipa A
-                  </label>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    value={resA} 
-                    onChange={e => setResA(Math.max(0, parseInt(e.target.value, 10) || 0))} 
-                    className="score-input"
-                    style={{ 
-                      background: 'rgba(245, 158, 11, 0.1)',
-                      border: '2px solid var(--primary)',
-                      color: 'var(--text-main)',
-                      boxShadow: '0 4px 15px rgba(245, 158, 11, 0.25)'
-                    }} 
-                  />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: '1.4rem' }}>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>X</span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
-                  <label style={{ fontWeight: 700, color: 'var(--danger)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Equipa B
-                  </label>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    value={resB} 
-                    onChange={e => setResB(Math.max(0, parseInt(e.target.value, 10) || 0))} 
-                    className="score-input"
-                    style={{ 
-                      background: 'rgba(239, 68, 68, 0.1)',
-                      border: '2px solid var(--danger)',
-                      color: 'var(--text-main)',
-                      boxShadow: '0 4px 15px rgba(239, 68, 68, 0.25)'
-                    }} 
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginBottom: '1.5rem' }}>
-                {/* Equipa A */}
-                <div>
-                  <h3 style={{ marginBottom: '1rem', borderBottom: '2px solid var(--primary)', paddingBottom: '0.5rem', color: 'var(--primary)' }}>
-                    Equipa A ({equipaA.length})
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '320px', overflowY: 'auto' }}>
-                    {users.map(u => (
-                      <label key={'A' + u.Email} style={{
-                        display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
-                        background: equipaA.includes(u.Email) ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255,255,255,0.03)',
-                        borderRadius: '8px', cursor: 'pointer', border: equipaA.includes(u.Email) ? '1px solid var(--primary)' : '1px solid transparent'
-                      }}>
-                        <input type="checkbox" checked={equipaA.includes(u.Email)} onChange={() => handlePlayerToggle(u.Email, 'A')} style={{ width: 'auto' }} />
-                        <span>{u.Nome} {u.IsGuest && '👻'}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Equipa B */}
-                <div>
-                  <h3 style={{ marginBottom: '1rem', borderBottom: '2px solid var(--danger)', paddingBottom: '0.5rem', color: 'var(--danger)' }}>
-                    Equipa B ({equipaB.length})
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '320px', overflowY: 'auto' }}>
-                    {users.map(u => (
-                      <label key={'B' + u.Email} style={{
-                        display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
-                        background: equipaB.includes(u.Email) ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.03)',
-                        borderRadius: '8px', cursor: 'pointer', border: equipaB.includes(u.Email) ? '1px solid var(--danger)' : '1px solid transparent'
-                      }}>
-                        <input type="checkbox" checked={equipaB.includes(u.Email)} onChange={() => handlePlayerToggle(u.Email, 'B')} style={{ width: 'auto' }} />
-                        <span>{u.Nome} {u.IsGuest && '👻'}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Botão Adicionar Convidado por baixo das equipas */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowAddGuest(true)}
-                  className="btn-secondary"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.9rem',
-                    padding: '0.65rem 1.25rem',
-                    borderRadius: '8px',
-                    border: '1px dashed rgba(245, 158, 11, 0.5)',
-                    background: 'rgba(245, 158, 11, 0.06)'
-                  }}
-                >
-                  <Plus size={16} style={{ color: 'var(--primary)' }} /> Adicionar Convidado à Lista
-                </button>
-              </div>
-            </>
+            <StandardGameForm
+              users={users}
+              equipaA={equipaA}
+              equipaB={equipaB}
+              resA={resA}
+              resB={resB}
+              setResA={setResA}
+              setResB={setResB}
+              handlePlayerToggle={handlePlayerToggle}
+              setShowAddGuest={setShowAddGuest}
+            />
           )}
 
           {/* ======================= MODALIDADE 2: REI DA PISTA ======================= */}
           {modality === 'reidapista' && (
-            <div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', textAlign: 'center' }}>
-                Forma 3 equipas. A equipa que ganha o mini-jogo mantém-se em campo como Rei, a que perde sai, e a que está de fora entra!
-              </p>
-
-              {/* Roster das 3 Equipas */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-                {(['A', 'B', 'C'] as const).map(teamKey => {
-                  const teamColor = teamKey === 'A' ? 'var(--primary)' : teamKey === 'B' ? 'var(--danger)' : '#3b82f6';
-                  const teamRoster = teamKey === 'A' ? reiEquipaA : teamKey === 'B' ? reiEquipaB : reiEquipaC;
-
-                  return (
-                    <div key={teamKey} style={{ background: 'rgba(0,0,0,0.25)', padding: '1rem', borderRadius: '10px', border: `1px solid ${teamColor}33` }}>
-                      <h4 style={{ color: teamColor, marginBottom: '0.75rem' }}>Equipa {teamKey} ({teamRoster.length})</h4>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: '200px', overflowY: 'auto' }}>
-                        {users.map(u => (
-                          <label key={teamKey + u.Email} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={teamRoster.includes(u.Email)} 
-                              onChange={() => handleReiPlayerToggle(u.Email, teamKey)} 
-                              style={{ width: 'auto' }} 
-                            />
-                            {u.Nome} {u.IsGuest && '👻'}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Botão Adicionar Convidado por baixo das 3 equipas */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowAddGuest(true)}
-                  className="btn-secondary"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.85rem',
-                    padding: '0.6rem 1.2rem',
-                    borderRadius: '8px',
-                    border: '1px dashed rgba(245, 158, 11, 0.5)',
-                    background: 'rgba(245, 158, 11, 0.06)'
-                  }}
-                >
-                  <Plus size={16} style={{ color: 'var(--primary)' }} /> Adicionar Convidado à Lista
-                </button>
-              </div>
-
-              {/* Mini-Jogos da Sessão */}
-              <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Trophy size={18} style={{ color: 'var(--primary)' }} /> Mini-Jogos Realizados ({reiMiniGames.length})
-              </h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                {reiMiniGames.map((mini, idx) => (
-                  <div key={idx} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: 'rgba(0,0,0,0.25)', padding: '0.85rem 1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)', gap: '1rem'
-                  }}>
-                    <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.9rem', minWidth: '32px' }}>#{idx + 1}</span>
-                    
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                      <span style={{ fontWeight: 700, color: mini.teamAKey === 'A' ? 'var(--primary)' : mini.teamAKey === 'B' ? 'var(--danger)' : '#3b82f6', fontSize: '0.95rem' }}>
-                        Equipa {mini.teamAKey}
-                      </span>
-                      <input 
-                        type="number" min="0" value={mini.resA} 
-                        onChange={e => {
-                          const val = Math.max(0, parseInt(e.target.value, 10) || 0);
-                          setReiMiniGames(prev => {
-                            const c = [...prev];
-                            c[idx].resA = val;
-                            return c;
-                          });
-                        }} 
-                        className="score-input-sm"
-                        style={{
-                          border: `1.5px solid ${mini.teamAKey === 'A' ? 'rgba(245, 158, 11, 0.6)' : mini.teamAKey === 'B' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(59, 130, 246, 0.6)'}`,
-                          background: 'rgba(255,255,255,0.06)',
-                          color: '#fff'
-                        }}
-                      />
-                    </div>
-
-                    <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.9rem' }}>–</span>
-
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.75rem' }}>
-                      <input 
-                        type="number" min="0" value={mini.resB} 
-                        onChange={e => {
-                          const val = Math.max(0, parseInt(e.target.value, 10) || 0);
-                          setReiMiniGames(prev => {
-                            const c = [...prev];
-                            c[idx].resB = val;
-                            return c;
-                          });
-                        }} 
-                        className="score-input-sm"
-                        style={{
-                          border: `1.5px solid ${mini.teamBKey === 'A' ? 'rgba(245, 158, 11, 0.6)' : mini.teamBKey === 'B' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(59, 130, 246, 0.6)'}`,
-                          background: 'rgba(255,255,255,0.06)',
-                          color: '#fff'
-                        }}
-                      />
-                      <span style={{ fontWeight: 700, color: mini.teamBKey === 'A' ? 'var(--primary)' : mini.teamBKey === 'B' ? 'var(--danger)' : '#3b82f6', fontSize: '0.95rem' }}>
-                        Equipa {mini.teamBKey}
-                      </span>
-                    </div>
-
-                    {idx === reiMiniGames.length - 1 && idx > 0 ? (
-                      <button 
-                        type="button" 
-                        onClick={() => setReiMiniGames(prev => prev.slice(0, -1))}
-                        style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-                        title="Remover este mini-jogo"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    ) : (
-                      <div style={{ width: '24px' }} />
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={addNextReiMiniGame}
-                className="btn-secondary"
-                style={{ width: '100%', marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-              >
-                <Plus size={16} /> Adicionar Próximo Mini-Jogo (Vencedor fica em campo)
-              </button>
-            </div>
+            <KingOfTheCourtForm
+              users={users}
+              reiEquipaA={reiEquipaA}
+              reiEquipaB={reiEquipaB}
+              reiEquipaC={reiEquipaC}
+              handleReiPlayerToggle={handleReiPlayerToggle}
+              reiMiniGames={reiMiniGames}
+              setReiMiniGames={setReiMiniGames}
+              setShowAddGuest={setShowAddGuest}
+              addNextReiMiniGame={addNextReiMiniGame}
+            />
           )}
 
           {/* ======================= MODALIDADE 3: ROTAÇÃO DINÂMICA ======================= */}
           {modality === 'rotacao_dinamica' && (
-            <div>
-              {rotRounds.length === 0 ? (
-                <div>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', textAlign: 'center' }}>
-                    Seleciona todos os jogadores que vão rodar durante esta noite (ex: 12 jogadores para 5v5 com 2 a rodar).
-                  </p>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem', maxHeight: '280px', overflowY: 'auto', marginBottom: '1.5rem' }}>
-                    {users.map(u => (
-                      <label key={u.Email} style={{
-                        display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', borderRadius: '6px',
-                        background: rotPool.includes(u.Email) ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255,255,255,0.03)',
-                        cursor: 'pointer', border: rotPool.includes(u.Email) ? '1px solid var(--primary)' : '1px solid var(--border-color)'
-                      }}>
-                        <input 
-                          type="checkbox" 
-                          checked={rotPool.includes(u.Email)} 
-                          onChange={() => setRotPool(prev => prev.includes(u.Email) ? prev.filter(e => e !== u.Email) : [...prev, u.Email])} 
-                          style={{ width: 'auto' }} 
-                        />
-                        <span style={{ fontSize: '0.85rem' }}>{u.Nome} {u.IsGuest && '👻'}</span>
-                      </label>
-                    ))}
-                  </div>
-
-                  {/* Ações por baixo do pool de jogadores */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddGuest(true)}
-                      className="btn-secondary"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        fontSize: '0.85rem',
-                        padding: '0.65rem 1.2rem',
-                        borderRadius: '8px',
-                        border: '1px dashed rgba(245, 158, 11, 0.5)',
-                        background: 'rgba(245, 158, 11, 0.06)'
-                      }}
-                    >
-                      <Plus size={16} style={{ color: 'var(--primary)' }} /> Adicionar Convidado
-                    </button>
-                    <button type="button" onClick={startRotationMode} className="btn-primary" style={{ padding: '0.65rem 1.5rem' }}>
-                      Iniciar Sessão com {rotPool.length} Jogadores
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <RefreshCw size={18} style={{ color: 'var(--primary)' }} /> Rondas / Períodos Jogados ({rotRounds.length})
-                    </h3>
-                  </div>
-
-                  {rotRounds.map((round, rIdx) => (
-                    <div key={rIdx} style={{ background: 'rgba(0,0,0,0.25)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-                        <h4 style={{ color: 'var(--primary)', margin: 0, fontSize: '1.05rem' }}>Ronda #{rIdx + 1}</h4>
-                        
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)' }}>Equipa A</span>
-                          <input 
-                            type="number" min="0" value={round.resA} 
-                            onChange={e => {
-                              const val = Math.max(0, parseInt(e.target.value, 10) || 0);
-                              setRotRounds(prev => {
-                                const c = [...prev]; c[rIdx].resA = val; return c;
-                              });
-                            }} 
-                            className="score-input-sm"
-                            style={{
-                              width: '52px',
-                              height: '40px',
-                              fontSize: '1.25rem',
-                              border: '1.5px solid rgba(245, 158, 11, 0.5)',
-                              background: 'rgba(245, 158, 11, 0.08)',
-                              color: '#fff'
-                            }}
-                          />
-                          <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0 0.15rem' }}>–</span>
-                          <input 
-                            type="number" min="0" value={round.resB} 
-                            onChange={e => {
-                              const val = Math.max(0, parseInt(e.target.value, 10) || 0);
-                              setRotRounds(prev => {
-                                const c = [...prev]; c[rIdx].resB = val; return c;
-                              });
-                            }} 
-                            className="score-input-sm"
-                            style={{
-                              width: '52px',
-                              height: '40px',
-                              fontSize: '1.25rem',
-                              border: '1.5px solid rgba(239, 68, 68, 0.5)',
-                              background: 'rgba(239, 68, 68, 0.08)',
-                              color: '#fff'
-                            }}
-                          />
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--danger)' }}>Equipa B</span>
-                        </div>
-                      </div>
-
-                      {/* Lineup da Ronda com botões para trocar */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                        {/* Equipa A */}
-                        <div style={{ background: 'rgba(245, 158, 11, 0.05)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-                          <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '0.85rem' }}>Equipa A ({round.equipaA.length})</div>
-                          {round.equipaA.map(email => (
-                            <div key={email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', padding: '0.2rem 0' }}>
-                              <span>{getUserName(email)}</span>
-                              <div style={{ display: 'flex', gap: '0.2rem' }}>
-                                <button type="button" onClick={() => moveRotationPlayer(rIdx, email, 'B')} title="Passar para Equipa B" style={{ fontSize: '0.7rem', padding: '2px 4px', background: 'rgba(239,68,68,0.2)', borderRadius: '4px' }}>Para B</button>
-                                <button type="button" onClick={() => moveRotationPlayer(rIdx, email, 'banco')} title="Passar para Banco" style={{ fontSize: '0.7rem', padding: '2px 4px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px' }}>Banco</button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Equipa B */}
-                        <div style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                          <div style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: '0.5rem', fontSize: '0.85rem' }}>Equipa B ({round.equipaB.length})</div>
-                          {round.equipaB.map(email => (
-                            <div key={email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', padding: '0.2rem 0' }}>
-                              <span>{getUserName(email)}</span>
-                              <div style={{ display: 'flex', gap: '0.2rem' }}>
-                                <button type="button" onClick={() => moveRotationPlayer(rIdx, email, 'A')} title="Passar para Equipa A" style={{ fontSize: '0.7rem', padding: '2px 4px', background: 'rgba(245,158,11,0.2)', borderRadius: '4px' }}>Para A</button>
-                                <button type="button" onClick={() => moveRotationPlayer(rIdx, email, 'banco')} title="Passar para Banco" style={{ fontSize: '0.7rem', padding: '2px 4px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px' }}>Banco</button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Banco / Fora */}
-                        <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.85rem' }}>No Banco ({round.banco.length})</div>
-                          {round.banco.map(email => (
-                            <div key={email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', padding: '0.2rem 0' }}>
-                              <span style={{ color: 'var(--text-muted)' }}>{getUserName(email)}</span>
-                              <div style={{ display: 'flex', gap: '0.2rem' }}>
-                                <button type="button" onClick={() => moveRotationPlayer(rIdx, email, 'A')} style={{ fontSize: '0.7rem', padding: '2px 4px', background: 'rgba(245,158,11,0.2)', borderRadius: '4px' }}>Para A</button>
-                                <button type="button" onClick={() => moveRotationPlayer(rIdx, email, 'B')} style={{ fontSize: '0.7rem', padding: '2px 4px', background: 'rgba(239,68,68,0.2)', borderRadius: '4px' }}>Para B</button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
-                    <button
-                      type="button"
-                      onClick={addNextRotationRound}
-                      className="btn-secondary"
-                      style={{ flex: 1, minWidth: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                    >
-                      <Plus size={16} /> Adicionar Próxima Ronda (Mantém equipas)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddGuest(true)}
-                      className="btn-secondary"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.4rem',
-                        fontSize: '0.85rem',
-                        border: '1px dashed rgba(245, 158, 11, 0.5)',
-                        background: 'rgba(245, 158, 11, 0.06)'
-                      }}
-                    >
-                      <Plus size={15} style={{ color: 'var(--primary)' }} /> Novo Convidado
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <RotationGameForm
+              users={users}
+              rotPool={rotPool}
+              setRotPool={setRotPool}
+              rotRounds={rotRounds}
+              setRotRounds={setRotRounds}
+              startRotationMode={startRotationMode}
+              addNextRotationRound={addNextRotationRound}
+              moveRotationPlayer={moveRotationPlayer}
+              setShowAddGuest={setShowAddGuest}
+              getUserName={getUserName}
+            />
           )}
 
           {/* ======================= SECÇÃO DE VÍDEO (GOOGLE DRIVE) ======================= */}

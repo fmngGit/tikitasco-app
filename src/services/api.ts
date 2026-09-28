@@ -111,18 +111,30 @@ let lastLocationsFetch = 0;
 let lastPollsFetch: Record<string, number> = {};
 const CACHE_TTL = 30000; // 30 segundos
 
-// Força a renovação dos dados na próxima chamada
+// Request coalescing: reutilizar promises in-flight para evitar requests duplicados
+let usersInFlight: Promise<UserStats[]> | null = null;
+let gamesInFlight: Promise<GameStats[]> | null = null;
+let expensesInFlight: Promise<Expense[]> | null = null;
+let locationsInFlight: Promise<Location[]> | null = null;
+let pollsInFlight: Record<string, Promise<PollVote[]> | undefined> = {};
+
+// Fase 3.2: Invalidação seletiva por entidade
+export const invalidateUsersCache = () => { usersCache = null; lastUsersFetch = 0; };
+export const invalidateGamesCache = () => { gamesCache = null; lastGamesFetch = 0; };
+export const invalidateExpensesCache = () => { expensesCache = null; lastExpensesFetch = 0; };
+export const invalidateLocationsCache = () => { locationsCache = null; lastLocationsFetch = 0; };
+export const invalidatePollsCache = (weekId?: string) => {
+  if (weekId) { delete pollsCache[weekId]; delete lastPollsFetch[weekId]; }
+  else { pollsCache = {}; lastPollsFetch = {}; }
+};
+
+// Força a renovação de TODOS os dados (usar apenas quando necessário)
 export const invalidateCache = () => {
-  usersCache = null;
-  gamesCache = null;
-  expensesCache = null;
-  locationsCache = null;
-  pollsCache = {};
-  lastUsersFetch = 0;
-  lastGamesFetch = 0;
-  lastExpensesFetch = 0;
-  lastLocationsFetch = 0;
-  lastPollsFetch = {};
+  invalidateUsersCache();
+  invalidateGamesCache();
+  invalidateExpensesCache();
+  invalidateLocationsCache();
+  invalidatePollsCache();
 };
 
 export const sortUsersByName = <T extends { Nome?: string; name?: string }>(list: T[]): T[] => {
@@ -143,20 +155,28 @@ export const fetchUsers = async (forceRefresh = false): Promise<UserStats[]> => 
     usersCache = sortUsersByName(mockUsers);
     return usersCache;
   }
+
+  // Request coalescing: reutilizar request in-flight
+  if (usersInFlight) return usersInFlight;
   
-  try {
-    const res = await fetch(`${GAS_URL}?action=get_users`);
-    const data = await res.json();
-    if (data.success) {
-      const sortedUsers = sortUsersByName<UserStats>(data.data || []);
-      usersCache = sortedUsers;
-      lastUsersFetch = now;
-      return sortedUsers;
+  usersInFlight = (async () => {
+    try {
+      const res = await fetch(`${GAS_URL}?action=get_users`);
+      const data = await res.json();
+      if (data.success) {
+        const sortedUsers = sortUsersByName<UserStats>(data.data || []);
+        usersCache = sortedUsers;
+        lastUsersFetch = Date.now();
+        return sortedUsers;
+      }
+      throw new Error(data.error);
+    } catch (error) {
+      return usersCache || [];
+    } finally {
+      usersInFlight = null;
     }
-    throw new Error(data.error);
-  } catch (error) {
-    return usersCache || [];
-  }
+  })();
+  return usersInFlight;
 };
 
 export const fetchGames = async (forceRefresh = false): Promise<GameStats[]> => {
@@ -169,19 +189,26 @@ export const fetchGames = async (forceRefresh = false): Promise<GameStats[]> => 
     gamesCache = mockGames;
     return mockGames;
   }
+
+  if (gamesInFlight) return gamesInFlight;
   
-  try {
-    const res = await fetch(`${GAS_URL}?action=get_games`);
-    const data = await res.json();
-    if (data.success) {
-      gamesCache = data.data;
-      lastGamesFetch = now;
-      return data.data;
+  gamesInFlight = (async () => {
+    try {
+      const res = await fetch(`${GAS_URL}?action=get_games`);
+      const data = await res.json();
+      if (data.success) {
+        gamesCache = data.data;
+        lastGamesFetch = Date.now();
+        return data.data;
+      }
+      throw new Error(data.error);
+    } catch (error) {
+      return gamesCache || [];
+    } finally {
+      gamesInFlight = null;
     }
-    throw new Error(data.error);
-  } catch (error) {
-    return gamesCache || [];
-  }
+  })();
+  return gamesInFlight;
 };
 
 export const fetchExpenses = async (forceRefresh = false): Promise<Expense[]> => {
@@ -194,24 +221,31 @@ export const fetchExpenses = async (forceRefresh = false): Promise<Expense[]> =>
     expensesCache = mockExpenses;
     return mockExpenses;
   }
+
+  if (expensesInFlight) return expensesInFlight;
   
-  try {
-    const res = await fetch(`${GAS_URL}?action=get_expenses`);
-    const data = await res.json();
-    if (data.success && Array.isArray(data.data)) {
-      const parsedData = data.data.map((exp: any) => ({
-        ...exp,
-        ValorCaixa: exp.ValorCaixa !== undefined && exp.ValorCaixa !== '' ? Number(exp.ValorCaixa) : Number(exp.Valor),
-        ContribuicoesDiretas: exp.ContribuicoesDiretas ? (typeof exp.ContribuicoesDiretas === 'string' ? JSON.parse(exp.ContribuicoesDiretas) : exp.ContribuicoesDiretas) : []
-      }));
-      expensesCache = parsedData;
-      lastExpensesFetch = Date.now();
-      return parsedData;
+  expensesInFlight = (async () => {
+    try {
+      const res = await fetch(`${GAS_URL}?action=get_expenses`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        const parsedData = data.data.map((exp: any) => ({
+          ...exp,
+          ValorCaixa: exp.ValorCaixa !== undefined && exp.ValorCaixa !== '' ? Number(exp.ValorCaixa) : Number(exp.Valor),
+          ContribuicoesDiretas: exp.ContribuicoesDiretas ? (typeof exp.ContribuicoesDiretas === 'string' ? JSON.parse(exp.ContribuicoesDiretas) : exp.ContribuicoesDiretas) : []
+        }));
+        expensesCache = parsedData;
+        lastExpensesFetch = Date.now();
+        return parsedData;
+      }
+      throw new Error(data.error);
+    } catch (error) {
+      return expensesCache || [];
+    } finally {
+      expensesInFlight = null;
     }
-    throw new Error(data.error);
-  } catch (error) {
-    return expensesCache || [];
-  }
+  })();
+  return expensesInFlight;
 };
 
 export const fetchLocations = async (forceRefresh = false): Promise<Location[]> => {
@@ -224,33 +258,59 @@ export const fetchLocations = async (forceRefresh = false): Promise<Location[]> 
     locationsCache = [];
     return [];
   }
+
+  if (locationsInFlight) return locationsInFlight;
   
-  try {
-    const res = await fetch(`${GAS_URL}?action=get_locations`);
-    const data = await res.json();
-    if (data.success && Array.isArray(data.data)) {
-      const parsedData = data.data.map((loc: any) => ({
-        ...loc,
-        PrecoHora: Number(loc.PrecoHora) || 0,
-        PrecoBola: loc.PrecoBola ? Number(loc.PrecoBola) : undefined,
-        PrecoColetes: loc.PrecoColetes ? Number(loc.PrecoColetes) : undefined,
-        Indoor: Number(loc.Indoor),
-        Balnearios: Number(loc.Balnearios)
-      }));
-      locationsCache = parsedData;
-      lastLocationsFetch = Date.now();
-      return parsedData;
+  locationsInFlight = (async () => {
+    try {
+      const res = await fetch(`${GAS_URL}?action=get_locations`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        const parsedData = data.data.map((loc: any) => ({
+          ...loc,
+          PrecoHora: Number(loc.PrecoHora) || 0,
+          PrecoBola: loc.PrecoBola ? Number(loc.PrecoBola) : undefined,
+          PrecoColetes: loc.PrecoColetes ? Number(loc.PrecoColetes) : undefined,
+          Indoor: Number(loc.Indoor),
+          Balnearios: Number(loc.Balnearios)
+        }));
+        locationsCache = parsedData;
+        lastLocationsFetch = Date.now();
+        return parsedData;
+      }
+      throw new Error(data.error);
+    } catch (error) {
+      return locationsCache || [];
+    } finally {
+      locationsInFlight = null;
     }
-    throw new Error(data.error);
-  } catch (error) {
-    return locationsCache || [];
-  }
+  })();
+  return locationsInFlight;
 };
 
-export const registerUser = async (token: string): Promise<boolean> => {
-  invalidateCache();
+export const registerUser = async (token: string): Promise<{ success: boolean; isNewUser: boolean }> => {
+  invalidateUsersCache();
   const result = await sendPostRequest({ action: 'register_user', token });
-  return !!result?.success;
+  return { success: !!result?.success, isNewUser: !!result?.isNewUser };
+};
+
+export const deleteAccount = async (token: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+  invalidateUsersCache();
+  invalidateGamesCache();
+  return sendPostRequest({ action: 'delete_account', token });
+};
+
+// Edição de nome de jogador convidado / fantasma
+export const editGuestName = async (token: string, guestEmail: string, newName: string): Promise<{ success: boolean, message?: string, error?: string }> => {
+  if (!token) {
+    return { success: false, error: 'Precisas de iniciar sessão com a conta Google para editar convidados.' };
+  }
+  
+  const result = await sendPostRequest({ action: 'edit_guest_name', token, guestEmail, newName });
+  if (result?.success) {
+    invalidateUsersCache();
+  }
+  return result;
 };
 
 // Criação de jogador convidado / fantasma
@@ -303,7 +363,7 @@ export const createGuestPlayer = async (token: string, name: string): Promise<{ 
     }
 
     if (data.success) {
-      invalidateCache();
+      invalidateUsersCache();
       // Adicionar imediatamente ao cache local se disponível
       if (data.user && usersCache) {
         usersCache.push(data.user);
@@ -339,7 +399,7 @@ export const claimGhostPlayer = async (token: string, ghostEmail: string): Promi
       return { success: false, error: 'Resposta inesperada do servidor ao associar perfil.' };
     }
 
-    if (data.success) invalidateCache();
+    if (data.success) invalidateUsersCache();
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -472,7 +532,7 @@ export const fetchMyVotes = async (token: string): Promise<Record<string, { ataq
 export const votePlayer = async (token: string, targetEmail: string, ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number, fairplay: number): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      invalidateCache();
+      invalidateUsersCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
@@ -480,7 +540,7 @@ export const votePlayer = async (token: string, targetEmail: string, ataque: num
       body: JSON.stringify({ action: 'vote', token, data: { targetEmail, ataque, defesa, fisico, passe, guardaRedes, fairplay } })
     });
     const data = await res.json();
-    if (data.success) invalidateCache();
+    if (data.success) invalidateUsersCache();
     return data;
   } catch (err: any) {
     return { success: false, error: 'Erro de conexão ao servidor.' };
@@ -504,7 +564,8 @@ export const registerGame = async (
 ): Promise<{success: boolean, gameId?: string, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      invalidateCache();
+      invalidateGamesCache();
+      invalidateUsersCache();
       return { success: true, gameId: 'mock-id' };
     }
     const res = await fetch(GAS_URL, {
@@ -529,7 +590,7 @@ export const registerGame = async (
       })
     });
     const data = await res.json();
-    if (data.success) invalidateCache();
+    if (data.success) { invalidateGamesCache(); invalidateUsersCache(); }
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -550,7 +611,8 @@ export const registerSession = async (
 ): Promise<{ success: boolean, sessionId?: string, error?: string }> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      invalidateCache();
+      invalidateGamesCache();
+      invalidateUsersCache();
       return { success: true, sessionId: 'mock-session-id' };
     }
     const res = await fetch(GAS_URL, {
@@ -562,7 +624,7 @@ export const registerSession = async (
       })
     });
     const data = await res.json();
-    if (data.success) invalidateCache();
+    if (data.success) { invalidateGamesCache(); invalidateUsersCache(); }
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -582,7 +644,8 @@ export const editGame = async (
 ): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      invalidateCache();
+      invalidateGamesCache();
+      invalidateUsersCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
@@ -603,7 +666,7 @@ export const editGame = async (
       })
     });
     const data = await res.json();
-    if (data.success) invalidateCache();
+    if (data.success) { invalidateGamesCache(); invalidateUsersCache(); }
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -613,7 +676,8 @@ export const editGame = async (
 export const deleteGame = async (token: string, gameId: string): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      invalidateCache();
+      invalidateGamesCache();
+      invalidateUsersCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
@@ -625,7 +689,7 @@ export const deleteGame = async (token: string, gameId: string): Promise<{succes
       })
     });
     const data = await res.json();
-    if (data.success) invalidateCache();
+    if (data.success) { invalidateGamesCache(); invalidateUsersCache(); }
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -643,7 +707,7 @@ export const registerExpense = async (
 ): Promise<{ success: boolean, error?: string }> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      invalidateCache();
+      invalidateExpensesCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
@@ -660,7 +724,7 @@ export const registerExpense = async (
       })
     });
     const data = await res.json();
-    if (data.success) invalidateCache();
+    if (data.success) invalidateExpensesCache();
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -679,7 +743,7 @@ export const editExpense = async (
 ): Promise<{ success: boolean, error?: string }> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      invalidateCache();
+      invalidateExpensesCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
@@ -697,7 +761,7 @@ export const editExpense = async (
       })
     });
     const data = await res.json();
-    if (data.success) invalidateCache();
+    if (data.success) invalidateExpensesCache();
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -707,7 +771,7 @@ export const editExpense = async (
 export const updateAvatar = async (token: string, base64: string): Promise<{success: boolean, error?: string}> => {
   try {
     if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      invalidateCache();
+      invalidateUsersCache();
       return { success: true };
     }
     const res = await fetch(GAS_URL, {
@@ -719,7 +783,7 @@ export const updateAvatar = async (token: string, base64: string): Promise<{succ
       })
     });
     const data = await res.json();
-    if (data.success) invalidateCache();
+    if (data.success) invalidateUsersCache();
     return data;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -745,7 +809,7 @@ export const updateProfile = async (
       })
     });
     const result = await res.json();
-    if (result.success) invalidateCache();
+    if (result.success) invalidateUsersCache();
     return result;
   } catch (err: any) {
     return { success: false, error: err.toString() };
@@ -768,7 +832,7 @@ export const registerLocation = async (
   email: string,
   notas: string
 ): Promise<{ success: boolean, message?: string, error?: string }> => {
-  invalidateCache();
+  invalidateLocationsCache();
   return sendPostRequest({
     action: 'register_location',
     token, nome, morada, precoHora, precoBola, precoColetes, tipoPiso, indoor, balnearios, tipoFutebol, fotosUrl, telefone, email, notas
@@ -792,7 +856,7 @@ export const editLocation = async (
   email: string,
   notas: string
 ): Promise<{ success: boolean, message?: string, error?: string }> => {
-  invalidateCache();
+  invalidateLocationsCache();
   return sendPostRequest({
     action: 'edit_location',
     token, locationId, nome, morada, precoHora, precoBola, precoColetes, tipoPiso, indoor, balnearios, tipoFutebol, fotosUrl, telefone, email, notas
@@ -800,7 +864,7 @@ export const editLocation = async (
 };
 
 export const deleteLocation = async (token: string, locationId: string): Promise<{ success: boolean, message?: string, error?: string }> => {
-  invalidateCache();
+  invalidateLocationsCache();
   return sendPostRequest({
     action: 'delete_location',
     token, locationId
@@ -830,19 +894,26 @@ export const fetchPolls = async (weekId: string, forceRefresh = false): Promise<
   if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
     return [];
   }
+
+  if (pollsInFlight[weekId]) return pollsInFlight[weekId]!;
   
-  try {
-    const res = await fetch(`${GAS_URL}?action=get_polls&weekId=${encodeURIComponent(weekId)}`);
-    const data = await res.json();
-    if (data.success) {
-      pollsCache[weekId] = data.data || [];
-      lastPollsFetch[weekId] = now;
-      return pollsCache[weekId];
+  pollsInFlight[weekId] = (async () => {
+    try {
+      const res = await fetch(`${GAS_URL}?action=get_polls&weekId=${encodeURIComponent(weekId)}`);
+      const data = await res.json();
+      if (data.success) {
+        pollsCache[weekId] = data.data || [];
+        lastPollsFetch[weekId] = Date.now();
+        return pollsCache[weekId];
+      }
+      throw new Error(data.error);
+    } catch (error) {
+      return pollsCache[weekId] || [];
+    } finally {
+      delete pollsInFlight[weekId];
     }
-    throw new Error(data.error);
-  } catch (error) {
-    return pollsCache[weekId] || [];
-  }
+  })();
+  return pollsInFlight[weekId];
 };
 
 export const submitPollVote = async (
@@ -855,8 +926,7 @@ export const submitPollVote = async (
   locations: string[]
 ): Promise<{ success: boolean, message?: string, error?: string }> => {
   // Invalidar a cache daquela semana especificamente
-  pollsCache[targetWeek] = null as any; 
-  lastPollsFetch[targetWeek] = 0;
+  invalidatePollsCache(targetWeek);
   
   return sendPostRequest({
     action: 'submit_poll',

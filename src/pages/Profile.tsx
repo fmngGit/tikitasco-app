@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchUsers, updateProfile, type UserStats } from '../services/api';
-import { User, Camera, Save, CheckCircle, AlertCircle, Trophy, Shield, Zap, Sparkles, Award, LogOut } from 'lucide-react';
+import { fetchUsers, updateProfile, deleteAccount, type UserStats } from '../services/api';
+import { User, Camera, Save, CheckCircle, AlertCircle, Trophy, Shield, Zap, Sparkles, Award, LogOut, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const Profile = () => {
-  const { profile, token, updateProfileState, logout } = useAuth();
+  const { profile, token, updateProfileState, logout, needsSetup, completeSetup } = useAuth();
+  const navigate = useNavigate();
   const [name, setName] = useState(profile?.name || '');
   const [avatar, setAvatar] = useState<string>(profile?.picture || '');
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,6 +84,13 @@ export const Profile = () => {
         name: name.trim(),
         picture: avatar
       });
+      
+      if (needsSetup) {
+        completeSetup();
+        navigate('/');
+        return;
+      }
+
       setMessage({ type: 'success', text: 'Perfil atualizado com sucesso! As alterações já estão ativas em toda a aplicação.' });
       
       // Atualizar também o registo local das stats
@@ -89,6 +99,28 @@ export const Profile = () => {
       }
     } else {
       setMessage({ type: 'error', text: res.error || 'Erro ao atualizar perfil.' });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!token) return;
+    const confirmDelete = window.confirm(
+      'Tens a certeza que queres eliminar a tua conta?\n\n' +
+      'Todo o teu histórico será mantido como "Convidado", mas o teu email Google será libertado. ' +
+      'Não poderás fazer login nesta conta a menos que reivindiques o perfil de convidado novamente no futuro.'
+    );
+
+    if (!confirmDelete) return;
+
+    setDeleteLoading(true);
+    const res = await deleteAccount(token);
+    setDeleteLoading(false);
+
+    if (res.success) {
+      alert('Conta eliminada e transformada em perfil de convidado com sucesso.');
+      logout();
+    } else {
+      setMessage({ type: 'error', text: res.error || 'Erro ao eliminar a conta.' });
     }
   };
 
@@ -107,9 +139,13 @@ export const Profile = () => {
             <User size={26} />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>O Meu Perfil</h1>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>
+              {needsSetup ? 'Bem-vindo ao TikiTasco!' : 'O Meu Perfil'}
+            </h1>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-              Personaliza o teu nome de jogador e foto que surgem nas equipas e classificações.
+              {needsSetup 
+                ? 'Antes de começares a jogar, confirma o teu nome e a tua fotografia de jogador.' 
+                : 'Personaliza o teu nome de jogador e foto que surgem nas equipas e classificações.'}
             </p>
           </div>
         </div>
@@ -289,13 +325,13 @@ export const Profile = () => {
               style={{ width: '100%', padding: '0.85rem' }}
             >
               <Save size={18} />
-              {loading ? 'A guardar perfil...' : 'Guardar Alterações'}
+              {loading ? (needsSetup ? 'A concluir registo...' : 'A guardar perfil...') : (needsSetup ? 'Concluir Registo' : 'Guardar Alterações')}
             </button>
           </div>
         </form>
 
         {/* Ficha / Resumo de Estatísticas */}
-        {userStats && !statsLoading && (
+        {!needsSetup && userStats && !statsLoading && (
           <div className="glass-panel" style={{ padding: '2rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -381,6 +417,42 @@ export const Profile = () => {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {!needsSetup && (
+          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              disabled={deleteLoading}
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--danger)',
+                color: 'var(--danger)',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '8px',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseOver={e => {
+                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+              }}
+              onMouseOut={e => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <Trash2 size={16} />
+              {deleteLoading ? 'A eliminar...' : 'Eliminar Conta (Desvincular Google)'}
+            </button>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.75rem', maxWidth: '400px', margin: '0.75rem auto 0' }}>
+              Ao eliminar a conta, o teu histórico é preservado como jogador convidado, mas a tua ligação com o Google é removida.
+            </p>
           </div>
         )}
       </div>

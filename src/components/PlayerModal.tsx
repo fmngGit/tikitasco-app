@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { UserStats, GameStats } from '../services/api';
+import { editGuestName } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { RadarChart } from './RadarChart';
-import { X, Award, UserCheck } from 'lucide-react';
+import { X, Award, UserCheck, Pencil, Check } from 'lucide-react';
 
 interface PlayerModalProps {
   player: UserStats | null;
@@ -11,7 +13,11 @@ interface PlayerModalProps {
 }
 
 export const PlayerModal: React.FC<PlayerModalProps> = ({ player, allGames = [], onClose }) => {
+  const { token } = useAuth();
   const [activeTab, setActiveTab] = useState<'attributes' | 'history'>('attributes');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -22,6 +28,22 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ player, allGames = [],
   }, [onClose]);
 
   if (!player) return null;
+
+  const handleSaveName = async () => {
+    if (!token || !player.IsGuest || !editName.trim() || editName.trim() === player.Nome) {
+      setIsEditingName(false);
+      return;
+    }
+    setIsSavingName(true);
+    const res = await editGuestName(token, player.Email, editName.trim());
+    setIsSavingName(false);
+    if (res.success) {
+      player.Nome = editName.trim();
+      setIsEditingName(false);
+    } else {
+      alert(res.error || 'Erro ao atualizar o nome do convidado.');
+    }
+  };
 
   // Determinar escalão
   let tierColor = '#c0c0c0';
@@ -122,8 +144,100 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ player, allGames = [],
           </div>
 
           <div style={{ flex: 1, minWidth: '200px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>{player.Nome}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+              {isEditingName ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    disabled={isSavingName}
+                    autoFocus
+                    maxLength={40}
+                    style={{
+                      fontSize: '1.2rem',
+                      fontWeight: 700,
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '6px',
+                      background: 'rgba(0,0,0,0.3)',
+                      color: 'var(--text-main)',
+                      border: '1px solid var(--primary)',
+                      width: '200px'
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleSaveName();
+                      if (e.key === 'Escape') setIsEditingName(false);
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={isSavingName || !editName.trim()}
+                    style={{
+                      background: 'var(--primary)',
+                      color: '#000',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer'
+                    }}
+                    title="Guardar"
+                  >
+                    <Check size={16} />
+                  </button>
+                  <button
+                    onClick={() => setIsEditingName(false)}
+                    disabled={isSavingName}
+                    style={{
+                      background: 'rgba(255,255,255,0.1)',
+                      color: 'var(--text-main)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer'
+                    }}
+                    title="Cancelar"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>{player.Nome}</h2>
+                  {player.IsGuest && (
+                    <button
+                      onClick={() => {
+                        setEditName(player.Nome);
+                        setIsEditingName(true);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0.25rem',
+                        borderRadius: '4px',
+                        transition: 'color 0.2s, background 0.2s'
+                      }}
+                      onMouseOver={e => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                      onMouseOut={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}
+                      title="Editar Nome do Convidado"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
+                </div>
+              )}
               {player.IsGuest && (
                 <span style={{
                   fontSize: '0.75rem',

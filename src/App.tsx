@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Login } from './pages/Login';
@@ -13,20 +13,40 @@ import { Treasury } from './pages/Treasury';
 import { Locations } from './pages/Locations';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { token } = useAuth();
-  if (!token) return <Navigate to="/login" replace />;
+  const { token, needsSetup } = useAuth();
+  const location = useLocation();
+
+  if (!token) return <Navigate to="/login" state={{ from: location }} replace />;
+  
+  // Se precisa de configurar o perfil e não está na página de perfil, redireciona para lá
+  if (needsSetup && location.pathname !== '/profile') {
+    return <Navigate to="/profile" replace />;
+  }
+  
   return <>{children}</>;
 };
 
-const AppRoutes = () => {
+const LoginRoute = () => {
   const { token } = useAuth();
+  const location = useLocation();
+  
+  if (token) {
+    const from = location.state?.from?.pathname || "/";
+    return <Navigate to={from} replace />;
+  }
+  
+  return <Login />;
+};
+
+const AppRoutes = () => {
+  const { token, needsSetup } = useAuth();
   
   return (
     <>
-      {token && <Navbar />}
+      {token && !needsSetup && <Navbar />}
       <main style={{ paddingBottom: '3rem' }}>
         <Routes>
-          <Route path="/login" element={!token ? <Login /> : <Navigate to="/" replace />} />
+          <Route path="/login" element={<LoginRoute />} />
           
           <Route path="/" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
           <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />

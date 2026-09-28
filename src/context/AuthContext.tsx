@@ -15,6 +15,8 @@ interface AuthContextType {
   login: (credential: string) => Promise<void>;
   logout: () => void;
   updateProfileState: (updated: Partial<UserProfile>) => void;
+  needsSetup: boolean;
+  completeSetup: () => void;
 }
 
 // Verifica se o token JWT do Google ainda é válido (não expirou)
@@ -37,7 +39,9 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   login: async () => {},
   logout: () => {},
-  updateProfileState: () => {}
+  updateProfileState: () => {},
+  needsSetup: false,
+  completeSetup: () => {}
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -60,6 +64,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return savedProfile ? JSON.parse(savedProfile) : null;
   });
 
+  const [needsSetup, setNeedsSetup] = useState<boolean>(() => {
+    return localStorage.getItem('tiki_needs_setup') === 'true';
+  });
+
   const updateProfileState = (updated: Partial<UserProfile>) => {
     setProfile(prev => {
       if (!prev) return null;
@@ -73,8 +81,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     googleLogout();
     setToken(null);
     setProfile(null);
+    setNeedsSetup(false);
     localStorage.removeItem('tiki_token');
     localStorage.removeItem('tiki_profile');
+    localStorage.removeItem('tiki_needs_setup');
+  };
+
+  const completeSetup = () => {
+    setNeedsSetup(false);
+    localStorage.removeItem('tiki_needs_setup');
   };
 
   // Sincronizar nome personalizado e avatar da base de dados se existirem
@@ -125,7 +140,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('tiki_profile', JSON.stringify(userProfile));
 
     // Registo ou atualização de perfil no Apps Script
-    await registerUser(credential);
+    const registerResult = await registerUser(credential);
+    
+    if (registerResult.isNewUser) {
+      setNeedsSetup(true);
+      localStorage.setItem('tiki_needs_setup', 'true');
+    }
     
     // Sincronizar com nome e avatar guardados no banco
     try {
@@ -141,7 +161,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ token, profile, login, logout, updateProfileState }}>
+    <AuthContext.Provider value={{ token, profile, login, logout, updateProfileState, needsSetup, completeSetup }}>
       {children}
     </AuthContext.Provider>
   );
