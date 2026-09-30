@@ -71,12 +71,42 @@ async function runMigration() {
         });
     }
 
-    // 3. Fetch Games
+    // 3. Fetch Locations
+    const locations = await fetchFromGAS('get_locations');
+    console.log(`Fetched ${locations.length} locations.`);
+    const locationMap: Record<string, string> = {}; // map old ID to new UUID
+    
+    for (const loc of locations) {
+        const { data: insertedLoc, error: locError } = await supabase.from('global_locations').insert({
+            nome: loc.Nome,
+            morada: loc.Morada,
+            preco_hora: loc.PrecoHora ? Number(loc.PrecoHora) : 0,
+            preco_bola: loc.PrecoBola ? Number(loc.PrecoBola) : 0,
+            preco_coletes: loc.PrecoColetes ? Number(loc.PrecoColetes) : 0,
+            tipo_piso: loc.TipoPiso,
+            indoor: loc.Indoor ? Number(loc.Indoor) : 0,
+            balnearios: loc.Balnearios ? Number(loc.Balnearios) : 0,
+            tipo_futebol: loc.TipoFutebol,
+            fotos_url: loc.FotosUrl,
+            registado_por: loc.RegistadoPor,
+            telefone: loc.Telefone,
+            email: loc.Email,
+            notas: loc.Notas
+        }).select('id').single();
+        
+        if (locError) {
+             console.error(`Error migrating location ${loc.Nome}:`, locError);
+        } else {
+             locationMap[loc.LocationID] = insertedLoc.id;
+        }
+    }
+
+    // 4. Fetch Games
     const games = await fetchFromGAS('get_games');
     console.log(`Fetched ${games.length} games.`);
     for (const g of games) {
+        const mappedLocationId = g.LocationID ? (locationMap[g.LocationID] || g.LocationID) : null;
         const { error: gameError } = await supabase.from('games').insert({
-            id: g.GameID,
             group_id: groupId,
             date: g.Data,
             res_a: g.Resultado_A,
@@ -91,12 +121,12 @@ async function runMigration() {
             round_number: g.RoundNumber,
             field_cost: g.FieldCost,
             fee: g.Fee,
-            location_id: g.LocationID
+            location_id: mappedLocationId
         });
         if (gameError) console.error(`Error migrating game ${g.GameID}:`, gameError);
     }
 
-    // 4. Fetch Expenses
+    // 5. Fetch Expenses
     const expenses = await fetchFromGAS('get_expenses');
     console.log(`Fetched ${expenses.length} expenses.`);
     for (const e of expenses) {
@@ -111,6 +141,30 @@ async function runMigration() {
             contribuicoes_diretas: typeof e.ContribuicoesDiretas === 'string' ? JSON.parse(e.ContribuicoesDiretas) : (e.ContribuicoesDiretas || [])
         });
         if (expError) console.error(`Error migrating expense ${e.ExpenseID}:`, expError);
+    }
+
+    // 6. Fetch Polls
+    try {
+        const polls = await fetchFromGAS('get_polls');
+        console.log(`Fetched ${polls?.length || 0} polls.`);
+        if (polls) {
+            for (const p of polls) {
+                const { error: pollError } = await supabase.from('polls').insert({
+                    group_id: groupId,
+                    target_week: p.TargetWeek,
+                    user_email: p.UserEmail,
+                    monday: typeof p.Monday === 'string' ? JSON.parse(p.Monday) : p.Monday,
+                    tuesday: typeof p.Tuesday === 'string' ? JSON.parse(p.Tuesday) : p.Tuesday,
+                    wednesday: typeof p.Wednesday === 'string' ? JSON.parse(p.Wednesday) : p.Wednesday,
+                    thursday: typeof p.Thursday === 'string' ? JSON.parse(p.Thursday) : p.Thursday,
+                    locations: typeof p.Locations === 'string' ? JSON.parse(p.Locations) : p.Locations,
+                    timestamp: p.Timestamp
+                });
+                if (pollError) console.error(`Error migrating poll for ${p.UserEmail}:`, pollError);
+            }
+        }
+    } catch (err) {
+        console.log("Could not fetch polls (endpoint might not exist). Skipping...");
     }
     
     // We would need a custom script/export to get the Votes since the GET endpoint gets aggregated users, 
