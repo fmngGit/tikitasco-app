@@ -298,24 +298,317 @@ export const fetchMyVotes = async (): Promise<Record<string, any>> => {
   return res;
 };
 
-// ...outras funções de API (registerGame, registerExpense) requerem o group_id
-// Num setup inicial vamos assumir o group_id "TikiTasco Original" para as inserções ou usar um lookup.
-// Para manter a estabilidade enquanto o Supabase é povoado, mantemos as assinaturas originais devolvendo sucesso mockado 
-// para funções de escrita mais complexas até teres o group_id pronto no contexto.
+const DEFAULT_GROUP_ID = '34f5269e-1aac-4041-93a9-0841bb7cf3ed';
 
-export const registerGame = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => {
-  invalidateGamesCache(); invalidateUsersCache();
+export const registerGame = async (
+  _token: string,
+  date: string,
+  resA: number,
+  resB: number,
+  equipaA: string[],
+  equipaB: string[],
+  videoData?: { fileId?: string; downloadUrl?: string; expiryDate?: string },
+  _unused?: any,
+  sessionType = 'standard',
+  roundNumber = 1,
+  fieldCost = 0,
+  fee = 0,
+  locationId?: string
+): Promise<{ success: boolean; gameId?: string; error?: string }> => {
+  const gameDate = date ? new Date(date).toISOString() : new Date().toISOString();
+  const { data, error } = await supabase.from('games').insert({
+    group_id: DEFAULT_GROUP_ID,
+    date: gameDate,
+    res_a: resA,
+    res_b: resB,
+    equipa_a: equipaA,
+    equipa_b: equipaB,
+    session_id: null,
+    session_type: sessionType,
+    video_file_id: videoData?.fileId || null,
+    video_download_url: videoData?.downloadUrl || null,
+    video_expiry_date: videoData?.expiryDate || null,
+    round_number: roundNumber,
+    field_cost: fieldCost,
+    fee: fee,
+    location_id: locationId || null
+  }).select().single();
+
+  if (error) {
+    console.error("Error registering game:", error);
+    return { success: false, error: error.message };
+  }
+  invalidateGamesCache();
+  invalidateUsersCache();
+  return { success: true, gameId: data?.id };
+};
+
+export const editGame = async (
+  _token: string,
+  gameId: string,
+  date: string,
+  resA: number,
+  resB: number,
+  equipaA: string[],
+  equipaB: string[],
+  videoData?: { fileId?: string; downloadUrl?: string; expiryDate?: string },
+  locationId?: string
+): Promise<{ success: boolean; error?: string }> => {
+  const gameDate = date ? new Date(date).toISOString() : new Date().toISOString();
+  const updatePayload: any = {
+    date: gameDate,
+    res_a: resA,
+    res_b: resB,
+    equipa_a: equipaA,
+    equipa_b: equipaB,
+  };
+  if (videoData) {
+    updatePayload.video_file_id = videoData.fileId;
+    updatePayload.video_download_url = videoData.downloadUrl;
+    updatePayload.video_expiry_date = videoData.expiryDate;
+  }
+  if (locationId !== undefined) {
+    updatePayload.location_id = locationId;
+  }
+
+  const { error } = await supabase.from('games').update(updatePayload).eq('id', gameId);
+  if (error) {
+    console.error("Error editing game:", error);
+    return { success: false, error: error.message };
+  }
+  invalidateGamesCache();
+  invalidateUsersCache();
   return { success: true };
 };
-export const editGame = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => { return { success: true }; };
-export const deleteGame = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => { return { success: true }; };
-export const registerSession = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => { return { success: true }; };
-export const registerExpense = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => { return { success: true }; };
-export const editExpense = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => { return { success: true }; };
-export const submitPollVote = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => { return { success: true }; };
-export const createGuestPlayer = async (..._args: any[]): Promise<{ success: boolean, user?: any, error?: string }> => { return { success: true }; };
-export const editGuestName = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => { return { success: true }; };
-export const claimGhostPlayer = async (..._args: any[]): Promise<{ success: boolean, error?: string, message?: string }> => { return { success: true }; };
+
+export const deleteGame = async (_token: string, gameId: string): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase.from('games').delete().eq('id', gameId);
+  if (error) {
+    console.error("Error deleting game:", error);
+    return { success: false, error: error.message };
+  }
+  invalidateGamesCache();
+  invalidateUsersCache();
+  return { success: true };
+};
+
+export const registerSession = async (
+  _token: string,
+  params: {
+    date: string;
+    sessionType: string;
+    rounds: { resA: number; resB: number; equipaA: string[]; equipaB: string[]; roundNumber?: number }[];
+    videoFileId?: string;
+    videoDownloadUrl?: string;
+    videoExpiryDate?: string;
+    locationId?: string;
+  }
+): Promise<{ success: boolean; sessionId?: string; error?: string }> => {
+  const sessionId = crypto.randomUUID();
+  const gameDate = params.date ? new Date(params.date).toISOString() : new Date().toISOString();
+  
+  const rows = params.rounds.map((r, idx) => ({
+    group_id: DEFAULT_GROUP_ID,
+    date: gameDate,
+    res_a: r.resA,
+    res_b: r.resB,
+    equipa_a: r.equipaA,
+    equipa_b: r.equipaB,
+    session_id: sessionId,
+    session_type: params.sessionType,
+    video_file_id: params.videoFileId || null,
+    video_download_url: params.videoDownloadUrl || null,
+    video_expiry_date: params.videoExpiryDate || null,
+    round_number: r.roundNumber || (idx + 1),
+    field_cost: 0,
+    fee: 0,
+    location_id: params.locationId || null
+  }));
+
+  const { error } = await supabase.from('games').insert(rows);
+  if (error) {
+    console.error("Error registering session:", error);
+    return { success: false, error: error.message };
+  }
+  invalidateGamesCache();
+  invalidateUsersCache();
+  return { success: true, sessionId };
+};
+
+export const registerExpense = async (
+  _token: string,
+  date: string,
+  description: string,
+  totalAmount: number,
+  photoUrlStr?: string,
+  boxAmount?: number,
+  formattedContribs?: any[]
+): Promise<{ success: boolean; error?: string }> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const { error } = await supabase.from('expenses').insert({
+    group_id: DEFAULT_GROUP_ID,
+    date: date ? new Date(date).toISOString() : new Date().toISOString(),
+    descricao: description,
+    valor: totalAmount,
+    foto_url: photoUrlStr || null,
+    registado_por: session?.user?.email || 'utilizador',
+    valor_caixa: boxAmount || 0,
+    contribuicoes_diretas: formattedContribs || []
+  });
+
+  if (error) {
+    console.error("Error registering expense:", error);
+    return { success: false, error: error.message };
+  }
+  invalidateExpensesCache();
+  return { success: true };
+};
+
+export const editExpense = async (
+  _token: string,
+  expenseId: string,
+  date: string,
+  description: string,
+  totalAmount: number,
+  photoUrlStr?: string,
+  boxAmount?: number,
+  formattedContribs?: any[]
+): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase.from('expenses').update({
+    date: date ? new Date(date).toISOString() : new Date().toISOString(),
+    descricao: description,
+    valor: totalAmount,
+    foto_url: photoUrlStr || null,
+    valor_caixa: boxAmount || 0,
+    contribuicoes_diretas: formattedContribs || []
+  }).eq('id', expenseId);
+
+  if (error) {
+    console.error("Error editing expense:", error);
+    return { success: false, error: error.message };
+  }
+  invalidateExpensesCache();
+  return { success: true };
+};
+
+export const submitPollVote = async (_token: string, targetWeek: string, monday: string[], tuesday: string[], wednesday: string[], thursday: string[], locations: string[]): Promise<{ success: boolean, error?: string }> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { success: false, error: 'User not authenticated' };
+  
+  const { error } = await supabase.from('polls').upsert({
+    group_id: DEFAULT_GROUP_ID,
+    target_week: targetWeek,
+    user_email: session.user.email,
+    monday,
+    tuesday,
+    wednesday,
+    thursday,
+    locations,
+    timestamp: new Date().toISOString()
+  }, { onConflict: 'group_id,target_week,user_email' });
+
+  if (error) {
+    console.error("Error submitting poll:", error);
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+};
+
+export const createGuestPlayer = async (
+  _token: string,
+  name: string
+): Promise<{ success: boolean; user?: any; error?: string }> => {
+  if (!name || !name.trim()) return { success: false, error: "Nome inválido." };
+  
+  const guestEmail = `guest_${crypto.randomUUID().substring(0, 8)}@convidado.tikitasco`;
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  const { data, error } = await supabase.from('users').insert({
+    email: guestEmail,
+    name: name.trim(),
+    avatar_url: '',
+    is_guest: true,
+    created_by: session?.user?.email || null
+  }).select().single();
+
+  if (error) {
+    console.error("Error creating guest player:", error);
+    return { success: false, error: error.message };
+  }
+  invalidateUsersCache();
+  return {
+    success: true,
+    user: {
+      Nome: data.name,
+      Email: data.email,
+      Vitorias: 0,
+      Empates: 0,
+      Derrotas: 0,
+      Pontos_Totais: 0,
+      Jogos_Jogados: 0,
+      Avatar: '',
+      IsGuest: true
+    }
+  };
+};
+
+export const editGuestName = async (
+  _token: string,
+  guestEmail: string,
+  newName: string
+): Promise<{ success: boolean; error?: string }> => {
+  if (!newName || !newName.trim()) return { success: false, error: "Nome inválido." };
+  const { error } = await supabase.from('users').update({ name: newName.trim() }).eq('email', guestEmail);
+  if (error) {
+    console.error("Error updating guest name:", error);
+    return { success: false, error: error.message };
+  }
+  invalidateUsersCache();
+  return { success: true };
+};
+
+export const claimGhostPlayer = async (
+  _token: string,
+  ghostEmail: string
+): Promise<{ success: boolean; error?: string; message?: string }> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { success: false, error: 'Unauthorized' };
+  const realEmail = session.user.email;
+  if (!realEmail) return { success: false, error: 'No user email' };
+
+  // 1. Atualizar jogos na tabela games
+  const { data: games } = await supabase.from('games').select('*');
+  if (games) {
+    for (const g of games) {
+      let modified = false;
+      let eqA: string[] = Array.isArray(g.equipa_a) ? g.equipa_a : [];
+      let eqB: string[] = Array.isArray(g.equipa_b) ? g.equipa_b : [];
+      if (eqA.includes(ghostEmail)) {
+        eqA = eqA.map(e => e === ghostEmail ? realEmail : e);
+        modified = true;
+      }
+      if (eqB.includes(ghostEmail)) {
+        eqB = eqB.map(e => e === ghostEmail ? realEmail : e);
+        modified = true;
+      }
+      if (modified) {
+        await supabase.from('games').update({ equipa_a: eqA, equipa_b: eqB }).eq('id', g.id);
+      }
+    }
+  }
+
+  // 2. Atualizar votos eliminando conflitos prévios
+  await supabase.from('votes').delete().or(`and(voter_email.eq.${realEmail},target_email.eq.${ghostEmail}),and(voter_email.eq.${ghostEmail},target_email.eq.${realEmail})`);
+  await supabase.from('votes').update({ voter_email: realEmail }).eq('voter_email', ghostEmail);
+  await supabase.from('votes').update({ target_email: realEmail }).eq('target_email', ghostEmail);
+
+  // 3. Remover utilizador temporário
+  await supabase.from('users').delete().eq('email', ghostEmail);
+
+  invalidateUsersCache();
+  invalidateGamesCache();
+  return { success: true, message: 'Perfil associado com sucesso!' };
+};
 
 export const uploadFileToSupabase = async (file: File, bucket: string, path: string): Promise<{ success: boolean, url?: string, error?: string }> => {
   const { data: _data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
@@ -347,6 +640,91 @@ export const uploadVideoToDrive = async (file: File): Promise<{ success: boolean
   const path = `videos/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
   return uploadFileToSupabase(file, 'tikitasco-storage', path);
 };
-export const registerLocation = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => ({ success: true });
-export const editLocation = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => ({ success: true });
-export const deleteLocation = async (..._args: any[]): Promise<{ success: boolean, error?: string }> => ({ success: true });
+
+export const registerLocation = async (
+  _token: string,
+  nome: string,
+  morada?: string,
+  precoHora?: number,
+  precoBola?: number,
+  precoColetes?: number,
+  tipoPiso?: string,
+  indoor?: boolean | number,
+  balnearios?: boolean | number,
+  tipoFutebol?: string,
+  fotosUrl?: string,
+  telefone?: string,
+  email?: string,
+  notas?: string
+): Promise<{ success: boolean; error?: string }> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const { error } = await supabase.from('global_locations').insert({
+    nome,
+    morada: morada || null,
+    preco_hora: precoHora ?? null,
+    preco_bola: precoBola ?? null,
+    preco_coletes: precoColetes ?? null,
+    tipo_piso: tipoPiso || null,
+    indoor: indoor ? 1 : 0,
+    balnearios: balnearios ? 1 : 0,
+    tipo_futebol: tipoFutebol || null,
+    fotos_url: fotosUrl || null,
+    registado_por: session?.user?.email || null,
+    telefone: telefone || null,
+    email: email || null,
+    notas: notas || null
+  });
+  if (error) {
+    console.error("Error registering location:", error);
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+};
+
+export const editLocation = async (
+  _token: string,
+  locationId: string,
+  nome: string,
+  morada?: string,
+  precoHora?: number,
+  precoBola?: number,
+  precoColetes?: number,
+  tipoPiso?: string,
+  indoor?: boolean | number,
+  balnearios?: boolean | number,
+  tipoFutebol?: string,
+  fotosUrl?: string,
+  telefone?: string,
+  email?: string,
+  notas?: string
+): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase.from('global_locations').update({
+    nome,
+    morada: morada || null,
+    preco_hora: precoHora ?? null,
+    preco_bola: precoBola ?? null,
+    preco_coletes: precoColetes ?? null,
+    tipo_piso: tipoPiso || null,
+    indoor: indoor ? 1 : 0,
+    balnearios: balnearios ? 1 : 0,
+    tipo_futebol: tipoFutebol || null,
+    fotos_url: fotosUrl || null,
+    telefone: telefone || null,
+    email: email || null,
+    notas: notas || null
+  }).eq('id', locationId);
+  if (error) {
+    console.error("Error editing location:", error);
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+};
+
+export const deleteLocation = async (_token: string, id: string): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase.from('global_locations').delete().eq('id', id);
+  if (error) {
+    console.error("Error deleting location:", error);
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+};
