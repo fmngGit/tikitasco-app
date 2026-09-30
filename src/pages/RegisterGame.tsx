@@ -281,36 +281,22 @@ export const RegisterGame = () => {
     if (!videoFile || !token) return;
 
     try {
-      setVideoUploadProgress(1);
+      setVideoUploadProgress(50); // Fake progress for now since supabase JS doesn't have an easy native progress without XHR
       setMessage(null);
 
-      // 1. Pedir sessão de upload resumable ao backend Apps Script
-      const initRes = await initiateVideoUpload(token, videoFile.name, videoFile.size, videoFile.type);
-      if (!initRes.success || !initRes.uploadUrl) {
-        throw new Error(initRes.error || 'Não foi possível iniciar o upload na Google Drive.');
-      }
-
-      // 2. Fazer o upload em streaming direto do browser/telemóvel para os servidores do Google
-      const uploadRes = await uploadVideoToDrive(videoFile, initRes.uploadUrl, (pct) => {
-        setVideoUploadProgress(pct);
-      });
+      const uploadRes = await uploadVideoToDrive(videoFile);
 
       if (!uploadRes.success) {
         throw new Error(uploadRes.error || 'Falha no envio do ficheiro de vídeo.');
       }
 
-      // 3. Finalizar e obter permissões / data de expiração (+30 dias)
-      if (uploadRes.fileId) {
-        const finalRes = await finalizeVideoUpload(token, uploadRes.fileId);
-        if (finalRes.success) {
-          setUploadedVideoData({
-            fileId: finalRes.fileId,
-            downloadUrl: finalRes.downloadUrl,
-            expiryDate: finalRes.expiryDate
-          });
-          setMessage({ type: 'success', text: 'Vídeo carregado com sucesso para a Google Drive! (Válido por 30 dias)' });
-        }
-      }
+      setUploadedVideoData({
+        fileId: uploadRes.url, // Using URL as ID
+        downloadUrl: uploadRes.url,
+        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      });
+      setMessage({ type: 'success', text: 'Vídeo carregado com sucesso para o Supabase Storage!' });
+
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || err.toString() });
     } finally {

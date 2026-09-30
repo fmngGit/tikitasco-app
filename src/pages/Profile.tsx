@@ -113,7 +113,7 @@ export const Profile = () => {
     if (!confirmDelete) return;
 
     setDeleteLoading(true);
-    const res = await deleteAccount(token);
+    const res = await deleteAccount();
     setDeleteLoading(false);
 
     if (res.success) {

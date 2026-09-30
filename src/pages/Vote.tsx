@@ -33,7 +33,7 @@ export const Vote = () => {
       setUsers(data);
     });
     if (token) {
-      fetchMyVotes(token).then(setMyVotes);
+      fetchMyVotes().then(setMyVotes);
     }
   }, [profile, token]);
 
