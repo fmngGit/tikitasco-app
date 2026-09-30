@@ -1,4 +1,3 @@
-import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import logoUrl from '../assets/tikitasco.png';
 
@@ -18,25 +17,31 @@ export const Login = () => {
           Tiki<span style={{ color: 'var(--primary)' }}>Tasco</span>
         </h1>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-          <GoogleLogin
-            onSuccess={credentialResponse => {
-              if (credentialResponse.credential) {
-                login(credentialResponse.credential);
-              }
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem', marginTop: '2rem' }}>
+          <button 
+            onClick={login}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              backgroundColor: '#fff',
+              color: '#333',
+              border: 'none',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '9999px',
+              fontSize: '1rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              transition: 'all 0.2s ease'
             }}
-            onError={() => {
-              // Login silencioso em caso de erro
-            }}
-            theme="filled_black"
-            shape="pill"
-            size="large"
-            text="signin_with"
-          />
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: '24px', height: '24px' }} />
+            Entrar com o Google
+          </button>
         </div>
 
       </div>
     </div>
   );
 };
-
