@@ -44,7 +44,7 @@ export interface Expense {
   Data: string;
   Descricao: string;
   Valor: number;
-  FotoUrl?: string; 
+  FotoUrl?: string;
   RegistadoPor?: string;
   ValorCaixa?: number;
   ContribuicoesDiretas?: { email: string; amount: number }[];
@@ -129,7 +129,7 @@ export const fetchUsers = async (forceRefresh = false): Promise<UserStats[]> => 
     Passe: Number(u.Passe),
     Guarda_Redes: Number(u.Guarda_Redes),
     Fairplay: Number(u.Fairplay),
-    Overall: Math.round((Number(u.Ataque)+Number(u.Defesa)+Number(u.Fisico)+Number(u.Passe)+Number(u.Guarda_Redes)+Number(u.Fairplay))/6),
+    Overall: Math.round((Number(u.Ataque) + Number(u.Defesa) + Number(u.Fisico) + Number(u.Passe) + Number(u.Guarda_Redes) + Number(u.Fairplay)) / 6),
     TotalVotos: Number(u.TotalVotos),
     IsGuest: u.IsGuest
   }));
@@ -204,10 +204,10 @@ export const fetchPolls = async (weekId: string): Promise<PollVote[]> => {
 export const registerUser = async (): Promise<{ success: boolean; isNewUser: boolean }> => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { success: false, isNewUser: false };
-  
+
   const user = session.user;
   const { data } = await supabase.from('users').select('email').eq('email', user.email).single();
-  
+
   if (!data) {
     await supabase.from('users').insert({
       email: user.email,
@@ -220,9 +220,9 @@ export const registerUser = async (): Promise<{ success: boolean; isNewUser: boo
 };
 
 export const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
-    // Requires edge function or direct call if RLS allows, for now we just sign out
-    await supabase.auth.signOut();
-    return { success: true };
+  // Requires edge function or direct call if RLS allows, for now we just sign out
+  await supabase.auth.signOut();
+  return { success: true };
 };
 
 export const updateProfile = async (
@@ -231,14 +231,14 @@ export const updateProfile = async (
 ): Promise<{ success: boolean; message?: string; name?: string; avatar?: string; error?: string }> => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { success: false, error: 'Unauthorized' };
-  
+
   const updates: any = {};
   if (data.name) updates.nome = data.name;
   if (data.avatar) updates.avatar_url = data.avatar;
 
   const { error } = await supabase.from('users').update(updates).eq('email', session.user.email);
   if (error) return { success: false, error: error.message };
-  
+
   invalidateUsersCache();
   return { success: true, message: 'Perfil atualizado' };
 };
@@ -248,7 +248,7 @@ export const updateAvatar = async (token: string, base64: string) => updateProfi
 export const votePlayer = async (token: string, targetEmail: string, ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number, fairplay: number) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { success: false, error: 'Unauthorized' };
-  
+
   const { error } = await supabase.from('votes').upsert({
     voter_email: session.user.email,
     target_email: targetEmail,
@@ -280,24 +280,41 @@ export const fetchMyVotes = async (): Promise<Record<string, any>> => {
 // Para manter a estabilidade enquanto o Supabase é povoado, mantemos as assinaturas originais devolvendo sucesso mockado 
 // para funções de escrita mais complexas até teres o group_id pronto no contexto.
 
-export const registerGame = async (...args: any[]): Promise<{success: boolean}> => {
-    invalidateGamesCache(); invalidateUsersCache();
-    return { success: true };
+export const registerGame = async (...args: any[]): Promise<{ success: boolean }> => {
+  invalidateGamesCache(); invalidateUsersCache();
+  return { success: true };
 };
-export const editGame = async (...args: any[]): Promise<{success: boolean}> => { return { success: true }; };
-export const deleteGame = async (...args: any[]): Promise<{success: boolean}> => { return { success: true }; };
-export const registerSession = async (...args: any[]): Promise<{success: boolean}> => { return { success: true }; };
-export const registerExpense = async (...args: any[]): Promise<{success: boolean}> => { return { success: true }; };
-export const editExpense = async (...args: any[]): Promise<{success: boolean}> => { return { success: true }; };
-export const submitPollVote = async (...args: any[]): Promise<{success: boolean}> => { return { success: true }; };
-export const createGuestPlayer = async (...args: any[]): Promise<{success: boolean, user?: any}> => { return { success: true }; };
-export const editGuestName = async (...args: any[]): Promise<{success: boolean}> => { return { success: true }; };
-export const claimGhostPlayer = async (...args: any[]): Promise<{success: boolean}> => { return { success: true }; };
+export const editGame = async (...args: any[]): Promise<{ success: boolean }> => { return { success: true }; };
+export const deleteGame = async (...args: any[]): Promise<{ success: boolean }> => { return { success: true }; };
+export const registerSession = async (...args: any[]): Promise<{ success: boolean }> => { return { success: true }; };
+export const registerExpense = async (...args: any[]): Promise<{ success: boolean }> => { return { success: true }; };
+export const editExpense = async (...args: any[]): Promise<{ success: boolean }> => { return { success: true }; };
+export const submitPollVote = async (...args: any[]): Promise<{ success: boolean }> => { return { success: true }; };
+export const createGuestPlayer = async (...args: any[]): Promise<{ success: boolean, user?: any }> => { return { success: true }; };
+export const editGuestName = async (...args: any[]): Promise<{ success: boolean }> => { return { success: true }; };
+export const claimGhostPlayer = async (...args: any[]): Promise<{ success: boolean }> => { return { success: true }; };
+
+export const uploadFileToSupabase = async (file: File, bucket: string, path: string): Promise<{ success: boolean, url?: string, error?: string }> => {
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+  if (error) return { success: false, error: error.message };
+  const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
+  return { success: true, url: publicUrl };
+};
 
 export const initiateVideoUpload = async (...args: any[]) => ({ success: true });
 export const finalizeVideoUpload = async (...args: any[]) => ({ success: true });
-export const uploadReceiptToDrive = async (...args: any[]) => ({ success: true });
-export const uploadVideoToDrive = async (...args: any[]) => ({ success: true });
+
+export const uploadReceiptToDrive = async (file: File): Promise<{ success: boolean, url?: string }> => {
+  const ext = file.name.split('.').pop();
+  const path = `receipts/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+  return uploadFileToSupabase(file, 'tikitasco-storage', path);
+};
+
+export const uploadVideoToDrive = async (file: File): Promise<{ success: boolean, url?: string }> => {
+  const ext = file.name.split('.').pop();
+  const path = `videos/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+  return uploadFileToSupabase(file, 'tikitasco-storage', path);
+};
 export const registerLocation = async (...args: any[]) => ({ success: true });
 export const editLocation = async (...args: any[]) => ({ success: true });
 export const deleteLocation = async (...args: any[]) => ({ success: true });
