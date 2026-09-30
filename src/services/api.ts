@@ -191,7 +191,7 @@ export const fetchLocations = async (): Promise<Location[]> => {
   }));
 };
 
-export const fetchPolls = async (weekId: string, forceRefresh?: boolean): Promise<PollVote[]> => {
+export const fetchPolls = async (weekId: string, _forceRefresh?: boolean): Promise<PollVote[]> => {
   const { data, error } = await supabase.from('polls').select('*').eq('target_week', weekId);
   if (error) return [];
   return data.map(p => ({
@@ -304,7 +304,7 @@ export const uploadFileToSupabase = async (file: File, bucket: string, path: str
 export const initiateVideoUpload = async (..._args: any[]) => ({ success: true });
 export const finalizeVideoUpload = async (..._args: any[]) => ({ success: true });
 
-export const uploadReceiptToDrive = async (token: string, fileData: string | File, fileName?: string): Promise<{ success: boolean, fileUrl?: string, error?: string }> => {
+export const uploadReceiptToDrive = async (_token: string, fileData: string | File, fileName?: string): Promise<{ success: boolean, fileUrl?: string, error?: string }> => {
   let f: File;
   if (typeof fileData === 'string') {
     const res = await fetch(fileData);
