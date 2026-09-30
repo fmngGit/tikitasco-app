@@ -371,10 +371,13 @@ export const editGame = async (
     updatePayload.location_id = locationId;
   }
 
-  const { error } = await supabase.from('games').update(updatePayload).eq('id', gameId);
+  const { data, error } = await supabase.from('games').update(updatePayload).eq('id', gameId).select();
   if (error) {
     console.error("Error editing game:", error);
     return { success: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { success: false, error: "Jogo não alterado. Verifica as permissões (RLS) no Supabase." };
   }
   invalidateGamesCache();
   invalidateUsersCache();
@@ -474,18 +477,21 @@ export const editExpense = async (
   boxAmount?: number,
   formattedContribs?: any[]
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase.from('expenses').update({
+  const { data, error } = await supabase.from('expenses').update({
     date: date ? new Date(date).toISOString() : new Date().toISOString(),
     descricao: description,
     valor: totalAmount,
     foto_url: photoUrlStr || null,
     valor_caixa: boxAmount || 0,
     contribuicoes_diretas: formattedContribs || []
-  }).eq('id', expenseId);
+  }).eq('id', expenseId).select();
 
   if (error) {
     console.error("Error editing expense:", error);
     return { success: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { success: false, error: "Despesa não alterada. Verifica as permissões (RLS) no Supabase." };
   }
   invalidateExpensesCache();
   return { success: true };
@@ -698,7 +704,7 @@ export const editLocation = async (
   email?: string,
   notas?: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase.from('global_locations').update({
+  const { data, error } = await supabase.from('global_locations').update({
     nome,
     morada: morada || null,
     preco_hora: precoHora ?? null,
@@ -712,10 +718,13 @@ export const editLocation = async (
     telefone: telefone || null,
     email: email || null,
     notas: notas || null
-  }).eq('id', locationId);
+  }).eq('id', locationId).select();
   if (error) {
     console.error("Error editing location:", error);
     return { success: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { success: false, error: "A alteração não foi gravada. Verifica se a política de UPDATE do RLS está ativa na tabela global_locations." };
   }
   return { success: true };
 };

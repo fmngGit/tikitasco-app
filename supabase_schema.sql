@@ -158,23 +158,33 @@ FROM public.users u;
 
 ALTER TABLE global_locations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON global_locations FOR SELECT USING (true);
-CREATE POLICY "Enable insert for authenticated users only" ON global_locations FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Enable all access for authenticated users" ON global_locations FOR ALL USING (auth.role() = 'authenticated');
 
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON groups FOR SELECT USING (true);
 
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON public.users FOR SELECT USING (true);
-CREATE POLICY "Enable update for users based on email" ON public.users FOR UPDATE USING (auth.email() = email);
+CREATE POLICY "Enable all access for authenticated users" ON public.users FOR ALL USING (auth.role() = 'authenticated');
 
 ALTER TABLE games ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable read access for all users" ON games FOR SELECT USING (true);
 CREATE POLICY "Enable all access for authenticated users" ON games FOR ALL USING (auth.role() = 'authenticated');
 
 ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable read access for all users" ON votes FOR SELECT USING (true);
 CREATE POLICY "Enable all access for authenticated users" ON votes FOR ALL USING (auth.role() = 'authenticated');
 
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable read access for all users" ON expenses FOR SELECT USING (true);
 CREATE POLICY "Enable all access for authenticated users" ON expenses FOR ALL USING (auth.role() = 'authenticated');
 
 ALTER TABLE polls ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable read access for all users" ON polls FOR SELECT USING (true);
 CREATE POLICY "Enable all access for authenticated users" ON polls FOR ALL USING (auth.role() = 'authenticated');
+
+-- Storage Bucket Policies (tikitasco-storage)
+CREATE POLICY "Allow Public Read on tikitasco-storage" ON storage.objects FOR SELECT USING (bucket_id = 'tikitasco-storage');
+CREATE POLICY "Allow Authenticated Upload on tikitasco-storage" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'tikitasco-storage' AND auth.role() = 'authenticated');
+CREATE POLICY "Allow Authenticated Update on tikitasco-storage" ON storage.objects FOR UPDATE USING (bucket_id = 'tikitasco-storage' AND auth.role() = 'authenticated');
+CREATE POLICY "Allow Authenticated Delete on tikitasco-storage" ON storage.objects FOR DELETE USING (bucket_id = 'tikitasco-storage' AND auth.role() = 'authenticated');
