@@ -50,7 +50,18 @@ export interface Expense {
   ContribuicoesDiretas?: { email: string; amount: number }[];
 }
 
-export const getDriveImageUrl = (url: string) => url;
+export const getDriveImageUrl = (url?: string | null) => {
+  if (!url) return '';
+  const urls = url.split(',').map(u => {
+    u = u.trim();
+    if (u.includes('drive.google.com/file/d/')) {
+      const match = u.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) return `https://drive.google.com/uc?id=${match[1]}`;
+    }
+    return u;
+  });
+  return urls.join(',');
+};
 
 export interface SessionRound {
   resA: number;
@@ -140,7 +151,10 @@ export const fetchUsers = async (forceRefresh = false): Promise<UserStats[]> => 
 export const fetchGames = async (forceRefresh = false): Promise<GameStats[]> => {
   if (!forceRefresh && gamesCache) return gamesCache;
   const { data, error } = await supabase.from('games').select('*').order('date', { ascending: false });
-  if (error) return [];
+  if (error) {
+    console.error("Error fetching games:", error);
+    return [];
+  }
   const mapped = data.map(g => ({
     GameID: g.id,
     Data: g.date,
@@ -165,13 +179,16 @@ export const fetchGames = async (forceRefresh = false): Promise<GameStats[]> => 
 export const fetchExpenses = async (forceRefresh = false): Promise<Expense[]> => {
   if (!forceRefresh && expensesCache) return expensesCache;
   const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
-  if (error) return [];
+  if (error) {
+    console.error("Error fetching expenses:", error);
+    return [];
+  }
   const mapped = data.map(e => ({
     ExpenseID: e.id,
     Data: e.date,
     Descricao: e.descricao,
     Valor: e.valor,
-    FotoUrl: e.foto_url,
+    FotoUrl: getDriveImageUrl(e.foto_url),
     RegistadoPor: e.registado_por,
     ValorCaixa: e.valor_caixa,
     ContribuicoesDiretas: e.contribuicoes_diretas
@@ -182,18 +199,24 @@ export const fetchExpenses = async (forceRefresh = false): Promise<Expense[]> =>
 
 export const fetchLocations = async (): Promise<Location[]> => {
   const { data, error } = await supabase.from('global_locations').select('*');
-  if (error) return [];
+  if (error) {
+    console.error("Error fetching locations:", error);
+    return [];
+  }
   return data.map(l => ({
     LocationID: l.id, Nome: l.nome, Morada: l.morada, PrecoHora: l.preco_hora, PrecoBola: l.preco_bola,
     PrecoColetes: l.preco_coletes, TipoPiso: l.tipo_piso, Indoor: l.indoor, Balnearios: l.balnearios,
-    TipoFutebol: l.tipo_futebol, FotosUrl: l.fotos_url, RegistadoPor: l.registado_por, Telefone: l.telefone,
+    TipoFutebol: l.tipo_futebol, FotosUrl: getDriveImageUrl(l.fotos_url), RegistadoPor: l.registado_por, Telefone: l.telefone,
     Email: l.email, Notas: l.notas
   }));
 };
 
 export const fetchPolls = async (weekId: string, _forceRefresh?: boolean): Promise<PollVote[]> => {
   const { data, error } = await supabase.from('polls').select('*').eq('target_week', weekId);
-  if (error) return [];
+  if (error) {
+    console.error("Error fetching polls:", error);
+    return [];
+  }
   return data.map(p => ({
     TargetWeek: p.target_week, UserEmail: p.user_email, Timestamp: p.timestamp,
     Monday: p.monday, Tuesday: p.tuesday, Wednesday: p.wednesday, Thursday: p.thursday, Locations: p.locations
