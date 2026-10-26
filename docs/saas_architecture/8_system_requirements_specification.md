@@ -30,15 +30,17 @@ Os requisitos funcionais definem *o que* o sistema deve fazer. Estão divididos 
 *   **FR-2.05:** A subscrição do Plano Premium deve estar **associada ao Grupo** (Tenant) e não ao utilizador individual. Apenas o Administrador/Owner do grupo possui permissão para realizar o upgrade do grupo para o plano Premium.
 *   **FR-2.06:** O Administrador deve poder gerar um "Invite Link" ou "Código de Convite" único para partilhar com os membros da equipa.
 *   **FR-2.07:** Um utilizador deve poder juntar-se a um grupo existente de forma imediata através do Invite Link ou código de convite.
-*   **FR-2.08:** O Administrador deve poder promover membros a `Co-Admin` ou `Treasury Admin` (funcionalidade exclusiva do plano Premium).
+*   **FR-2.08:** O Dono do Grupo (`Owner`) deve poder nomear e revogar Administradores (`Co-Admins`) e `Treasury Admins` para o seu grupo. Os Administradores partilham as permissões de gestão desportiva do grupo (configuração de votações, seleção de campos e registo de jogos).
 *   **FR-2.09:** O Administrador deve poder expulsar membros do grupo.
+*   **FR-2.10:** **Hierarquia de Controlo de Agenda e Votações:** Apenas o Dono (`Owner`) e os Administradores nomeados por este possuem autorização para configurar os parâmetros da votação semanal (dias abertos, horários/slots, datas personalizadas e seleção de recintos aceitáveis do grupo). Os membros regulares (`Members`) apenas podem votar nas opções disponibilizadas.
 
 ### Módulo 3: Votações e Agenda Semanal (Polls & Schedule)
-*   **FR-3.01:** O Administrador do grupo é o responsável pela configuração e parametrização da votação semanal:
-    *   Seleciona quais os dias da semana abertos a votação;
-    *   Define os *slots* horários disponíveis para os membros votarem;
-    *   Define a lista de recintos desportivos aceitáveis para essa semana;
-    *   Define a janela temporal de votação, controlando formalmente quando a votação **abre** e quando **fecha** (bloqueando novos votos).
+*   **FR-3.01:** O Dono do grupo ou os Administradores nomeados por este são os responsáveis exclusivos pela configuração e parametrização da votação semanal:
+    *   **Personalização de Datas e Dias:** Podem editar e selecionar quais os dias da semana ou datas específicas abertas a votação (ex: de Segunda a Quinta, fins de semana, ou datas pontuais);
+    *   **Personalização de Slots Horários:** Podem definir e editar os *slots* horários disponíveis para os membros votarem (ex: 18h, 19h, 20h, 21h, 22h, ou outros horários à medida);
+    *   **Curadoria de Campos Aceitáveis:** Podem selecionar e gerir, a partir do catálogo global de campos existentes (`global_locations`), quais os recintos que ficam disponíveis para os membros votarem no seu grupo;
+    *   **Controlo de Janela de Votação:** Podem definir formalmente quando a votação **abre** e quando **fecha** (bloqueando a submissão ou alteração de votos após o fecho).
+    *   **Restrição de Membros:** Os membros comuns do grupo apenas possuem permissão para votar dentro do leque estrito de datas, horas e campos definidos pela equipa de administração.
 *   **FR-3.02:** O sistema deve calcular automaticamente a semana-alvo da votação: se a consulta ocorrer a uma sexta-feira, sábado ou domingo, calcula a segunda-feira da próxima semana; de segunda a quinta-feira calcula a segunda-feira da semana em curso.
 *   **FR-3.03:** O sistema deve desativar visualmente e bloquear a seleção dos dias da semana que já se encontrem no passado em relação à data atual (`isDayInPast`).
 *   **FR-3.04:** Os membros do grupo devem poder submeter a sua disponibilidade horária marcando os horários em que podem jogar e selecionando os recintos desportivos aceitáveis a partir dos campos autorizados pelo Administrador.

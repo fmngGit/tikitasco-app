@@ -27,12 +27,16 @@ Para assegurar o isolamento dos dados de cada equipa:
     *   `id` (UUID), `name`, `invite_code`, `created_at`, `plan_tier` ('free' | 'premium').
     *   *Regra de Propriedade:* A subscrição Premium é associada ao **Grupo** e não ao utilizador individual. Apenas o Administrador do grupo pode efetuar o upgrade. Um utilizador pode ser Administrador de no máximo **1 Grupo Free**, mas de múltiplos (*n*) **Grupos Premium**.
 3.  **`group_members`**: Tabela de associação (N:M).
-    *   `user_id`, `group_id`, `role` (owner, admin, member).
+    *   `user_id`, `group_id`, `role` (`owner`, `admin`, `member`).
+    *   *Hierarquia de Papéis e Permissões:*
+        *   **`Owner` (Dono do Grupo):** Criador do grupo com autoridade total, incluindo gestão de subscrição/planos, nomeação ou revogação de Administradores (`Co-Admins`) e `Treasury Admins`, e parametrização geral do grupo.
+        *   **`Admin` (Administrador):** Nomeado pelo Dono do grupo. Partilha as permissões de gestão desportiva: edição de datas e slots horários abertos para votação, curadoria e seleção dos campos disponíveis para o grupo a partir da lista global (`global_locations`), e gestão/registo de jogos.
+        *   **`Member` (Membro Regular):** Jogador do grupo. Vota na agenda semanal dentro do leque restrito de opções configuradas pela administração, avalia colegas no balneário e consulta estatísticas.
     *   *Múltiplos Grupos:* Cada utilizador pode pertencer a múltiplos grupos simultaneamente. A interface disponibiliza um **Seletor de Grupo Ativo** para alternar de contexto, bem como a opção de **Sair do Grupo** (Leave Group) a qualquer momento.
 4.  **Gestão de Campos (Locations - Global vs Local)**:
-    *   **`global_locations`**: Base de dados partilhada de campos (id, nome, morada, preço, horários de abertura/fecho por dia da semana e dias de encerramento). 
-    *   **`group_locations`**: Tabela de associação (`group_id`, `location_id`) que define quais campos globais estão ativados para um grupo específico.
-    *   *Crowdsourcing:* Qualquer utilizador pode visualizar campos globais e sugerir novos campos ou **reportar erros** (ex: preço desatualizado). Administradores da plataforma (ou do grupo) validam estas alterações. (Estratégia: Manter esta feature grátis para acelerar o crescimento inicial da base de dados de campos de futebol a nível nacional).
+    *   **`global_locations`**: Base de dados partilhada de recintos desportivos a nível global (id, nome, morada, preço, horários de abertura/fecho por dia da semana e dias de encerramento). 
+    *   **`group_locations`**: Tabela de associação (`group_id`, `location_id`) que define quais campos globais estão ativados para um grupo específico. **Apenas o Dono (`Owner`) e os Administradores nomeados por este têm autorização para selecionar os campos disponíveis para o grupo a partir da lista global de campos.**
+    *   *Crowdsourcing:* Qualquer utilizador pode visualizar campos globais e sugerir novos campos ou **reportar erros** (ex: preço desatualizado). Administradores da plataforma validam estas alterações. (Estratégia: Manter esta feature grátis para acelerar o crescimento inicial da base de dados de campos de futebol a nível nacional).
 5.  **Recursos Específicos (Tenant-scoped)**:
     *   Tabelas como `polls`, `games` e `treasury` terão obrigatoriamente uma coluna `group_id` (Foreign Key). 
     *   Implementação de Row Level Security (RLS) no Supabase para garantir que um utilizador apenas consegue ler/escrever dados onde o `group_id` coincide com um grupo ao qual pertence.
@@ -58,11 +62,12 @@ Para garantir uma visão unificada, listam-se abaixo todas as funcionalidades (i
     *   Criação de grupos privados com Invite Code e Invite Link direto para partilha no WhatsApp.
 
 ### 3.2 Votações e Agenda Semanal (Organizar Próximo Jogo)
-*   **Controlo Total da Votação pelo Administrador:**
-    *   O Administrador define quais os dias da semana abertos a votação;
-    *   O Administrador define os *slots* horários disponíveis;
-    *   O Administrador seleciona os recintos desportivos autorizados para a semana;
-    *   O Administrador controla a janela temporal de votação (data/hora de **abertura** e de **fecho** oficial da votação).
+*   **Controlo e Edição Exclusivos pelo Dono e Administradores:**
+    *   **Edição de Datas e Dias Abertos:** O Dono do grupo (`Owner`) e os Administradores nomeados por este definem e editam quais as datas específicas ou dias da semana abertos a votação (ex: de Segunda a Quinta, fins de semana, ou datas pontuais);
+    *   **Edição de Slots Horários:** O Dono e Administradores definem e editam os *slots* horários disponíveis para escolha dos membros (ex: 18h, 19h, 20h, 21h, 22h, ou outros horários flexíveis);
+    *   **Curadoria de Campos Disponíveis para Votação:** O Dono e Administradores selecionam, a partir da lista global de recintos existentes (`global_locations`), quais os campos que ficam elegíveis para os membros votarem no grupo (`group_locations`);
+    *   **Janela Temporal de Votação:** O Dono e Administradores controlam a data/hora de **abertura** e de **fecho** oficial da votação (bloqueando a submissão ou alteração de votos após o encerramento).
+*   **Restrição de Membros Regulares:** Os membros comuns (`Members`) têm acesso restrito à votação, podendo apenas assinalar disponibilidade dentro do leque de datas, horas e campos pré-selecionados e autorizados pela administração.
 *   **Agenda Semanal Multi-Slot:** Votação para os dias e horários configurados com seleção de múltiplos horários e escolha explícita de recintos aceitáveis.
 *   **Cálculo Automático da Semana-Alvo:** Se a consulta for feita à sexta-feira, sábado ou domingo, a aplicação calcula automaticamente a segunda-feira da próxima semana; de segunda a quinta-feira fixa-se na semana atual.
 *   **Bloqueio de Dias Passados:** Desativação visual e bloqueio de cliques nos dias da semana que já tenham passado (`isDayInPast`).
@@ -112,7 +117,7 @@ Para garantir uma visão unificada, listam-se abaixo todas as funcionalidades (i
     *   Secção expansível "Contactos e Notas" com telefone direto (`tel:`), email direto (`mailto:`) e notas de acesso.
 *   **Modal de Registo/Edição com Mapa Interativo (Leaflet):** Integração do MapPicker para seleção de localização via pesquisa de morada ou colocação de pin direto no mapa com coordenadas GPS.
 *   **Crowdsourcing:** Registo e edição de novos campos com upload de fotos diretamente para o Storage.
-*   **Filtro por Grupo:** O Administrador escolhe quais os campos que surgem na votação semanal da sua equipa.
+*   **Curadoria e Ativação por Grupo (`group_locations`):** O Dono (`Owner`) e Administradores nomeados selecionam, a partir da lista global de campos (`global_locations`), quais os recintos que ficam disponíveis para a votação semanal da sua equipa.
 
 ### 3.6 Tesouraria e Caixa do Grupo (100% Exclusivo Premium)
 *   **Gestão Exclusiva de Caixa Comum:** Controlo do fundo de maneio / saldo coletivo acumulado ("Caixinha") alimentado pelas taxas fixas recolhidas por jogo a cada participante. Não se destina ao pagamento de jogos em si, mas sim ao saldo coletivo do grupo.
