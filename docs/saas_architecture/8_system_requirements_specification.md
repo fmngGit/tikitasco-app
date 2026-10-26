@@ -62,6 +62,11 @@ Os requisitos funcionais definem *o que* o sistema deve fazer. Estão divididos 
     *   🔴 **`Cancelado`**: Anulação da convocatória (por intempérie, indisponibilidade de campo ou falta de quórum).
     *   🟢 **`Realizado`**: A marcação de um jogo como `Realizado` converte diretamente o evento no **registo formal do jogo** (integrado no Módulo 4). Este fluxo abre o formulário de registo pré-preenchendo a data, o recinto e a lista de jogadores confirmados, solicitando ao Administrador a inserção do resultado final (Res A vs Res B), escalações definitivas das equipas, modalidade disputada, custos do campo e taxas por presença. A gravação atualiza imediatamente e de forma atómica todas as estatísticas dos jogadores no Leaderboard (jogos, vitórias, empates, derrotas, pontos e OVR) e regista as respetivas entradas financeiras de taxas na Tesouraria.
 *   **FR-3.11:** Quando um jogo é colocado no estado `Marcado`, cada utilizador deve ter disponível um botão **"Adicionar ao Calendário"** que gera e descarrega um ficheiro `.ics` ou integração direta (Google Calendar, Apple Calendar, Outlook) com o dia, horário de início/fim, nome do recinto e morada física.
+*   **FR-3.12:** O sistema deve permitir que um jogador, ao submeter o seu voto para um dia/horário específico, indique que traz amigos adicionais (ex: `+1` ou `+2` convidados):
+    *   **Isolamento:** A indicação de convidados aplica-se estritamente ao dia/horário em que foi selecionada, não se propagando automaticamente para outros dias ou horários votados pelo jogador na mesma semana;
+    *   **Cálculo de Quórum:** O motor de sugestões contabiliza as presenças reais ponderadas (`1 + N convidados`), atualizando de imediato os alertas "FALTAM X" e o estado "QUÓRUM ATINGIDO";
+    *   **Identificação Visual:** O painel de jogadores disponíveis deve exibir o avatar do jogador com o badge de contagem de convidados (ex: `João Silva (+1)`);
+    *   **Conversão para Jogo:** Ao converter a votação em jogo oficial, as vagas adicionais são automaticamente pré-preenchidas na folha de convocados como jogadores convidados temporários (`Convidado 1 (João Silva)`), permitindo renomeação posterior e rateio correto dos custos do recinto e taxas individuais.
 
 ### Módulo 4: Registo de Jogos e Histórico de Sessões (Games & Match History)
 *   **FR-4.01:** O sistema deve permitir o registo de jogos em 3 modalidades reais e especializadas:
@@ -177,6 +182,13 @@ Os requisitos funcionais definem *o que* o sistema deve fazer. Estão divididos 
         *   Isenção permanente de anúncios na conta individual do utilizador em qualquer grupo (mesmo grupos no Plano Free);
         *   Desbloqueio de temas estéticos exclusivos de Cartão FIFA (Ouro Raro, In-Form/TOTW, Retro 90s);
         *   Painel pessoal com gráficos de evolução temporal de OVR e estatísticas comparativas de desempenho individual.
+
+### Módulo 12: Comunicação Interna e Mural do Balneário (Chat Contextual)
+*   **FR-12.01:** O sistema deve disponibilizar um **Mural do Balneário** em tempo real por grupo, integrado nos ecrãs de Agenda/Convocatória e Ficha de Jogo, suportado por WebSockets com o Supabase Realtime.
+*   **FR-12.02:** O sistema deve permitir aos membros enviar mensagens rápidas de alinhamento logístico para o próximo jogo (gestão de coletes/bolas, avisos de atraso no trânsito e apelos de quórum).
+*   **FR-12.03:** O sistema deve suportar uma secção de comentários e debate pós-jogo associada à folha de jogo e avaliações FIFA, permitindo comentar o resultado e o Homem do Jogo (MVP).
+*   **FR-12.04:** O Dono e Administradores do grupo devem poder **Fixar Mensagens (*Pin Announcement*)** no topo do mural com destaque visual amarelo permanente (ex: alterações de pavilhão, instruções de portão ou lembretes de pagamento MBWay).
+*   **FR-12.05:** O sistema deve disponibilizar micro-reações instantâneas com 1 clique através de emojis temáticos desportivos (⚽, 🍺, 🔥, 😂, 🧤).
 
 ---
 

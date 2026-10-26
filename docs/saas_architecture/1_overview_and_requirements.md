@@ -77,6 +77,12 @@ Para garantir uma visão unificada, listam-se abaixo todas as funcionalidades (i
     *   *Disponíveis:* lista com avatares dos jogadores que marcaram presença;
     *   *Não podem:* lista dos jogadores indisponíveis (foto a preto-e-branco e nome rasurado);
     *   *Faltam Votar:* lista nominal dos membros do grupo (excluindo convidados) que ainda não responderam à convocatória.
+*   **Voto com Convidados por Dia/Slot (+1 / +2 Amigos):**
+    *   O utilizador pode assinalar disponibilidade indicando que traz amigos adicionais para um dia ou horário específico (ex: `+1 amigo`, `+2 amigos`), fazendo o seu voto valer por múltiplas presenças nesse slot concreto;
+    *   **Isolamento de Slots:** A seleção de amigos é estritamente vinculada ao dia/slot específico e não se propaga para os restantes horários da semana marcados pelo jogador;
+    *   **Contabilização no Quórum:** O motor de sugestões calcula a presença real ponderada (`Total = 1 + N convidados`), atualizando de imediato os alertas "FALTAM X" ou "QUÓRUM ATINGIDO";
+    *   **Destaque Visual:** O avatar do votante no painel de disponíveis apresenta um badge numérico identificativo (ex: `João Silva (+1)`);
+    *   **Conversão Automática em Folha de Jogo:** Ao converter a votação em jogo oficial, as vagas extras são pré-preenchidas como jogadores convidados temporários (`Convidado 1 (João Silva)`), permitindo renomear mais tarde e garantindo que o rateio de custos e taxas por presença seja rigorosamente exato.
 *   **Partilha Rápida no WhatsApp:** Geração automática e partilha de mensagem com o intervalo de datas da semana e link direto `#/agenda`.
 *   **Ciclo de Estados do Jogo e Calendário:** O Administrador converte a votação num `Game` com transição entre estados:
     *   🟡 `Marcado`: Confirmação formal do dia, hora e local da partida. Ativa para todos os utilizadores o botão **"Adicionar ao Calendário"** (geração de ficheiro `.ics` ou integração direta com Google Calendar, Apple Calendar e Outlook com dia, hora e morada do campo).
@@ -149,6 +155,17 @@ Para garantir uma visão unificada, listam-se abaixo todas as funcionalidades (i
 *   **Gestão de Taxas de Inscrição e Prémios:**
     *   Inscrição da equipa na Liga através do saldo da Tesouraria do grupo via Stripe;
     *   Atribuição de taças oficiais TikiTasco, medalhas e vouchers de parceiros patrocinadores aos vencedores.
+
+### 3.9 Comunicação Interna e "Mural do Balneário" (Chat Contextual)
+*   **Posicionamento Focado (Sem concorrência com o WhatsApp):** O chat da aplicação não se destina a conversa genérica do dia-a-dia, mas sim à comunicação estritamente **contextual do jogo e do balneário**.
+*   **Mural do Próximo Jogo (Agenda / Convocatória):** Feed rápido associado à votação da semana para alinhamento logístico em tempo real:
+    *   Gestão de material desportivo (*"Quem leva as bolas e os coletes?"*);
+    *   Avisos de atrasos de trânsito ou imprevistos de última hora;
+    *   Apelos de quórum (*"Falta 1 para os 10, convidem alguém!"*).
+*   **Picardia e Reações Pós-Jogo (Ficha de Jogo & Ratings):** Espaço de comentários pós-partida onde os membros discutem o resultado, comentam lances marcantes e debatem os atributos e nota OVR do Homem do Jogo (MVP).
+*   **Avisos Fixados pelo Administrador (*Pinned Announcements*):** O Dono ou Administrador pode fixar no topo do mural uma mensagem de alta prioridade (ex: alteração de pavilhão, instruções de acesso ou lembrete de pagamento via MBWay) com destaque visual permanente.
+*   **Reações Rápidas com Emojis Temáticos:** Micro-interações instantâneas com 1 clique (⚽, 🍺, 🔥, 😂, 🧤) para manter a comunidade ativa sem fricção de digitação.
+*   **Infraestrutura Supabase Realtime:** Suporte nativo a WebSockets via Supabase Realtime com sincronização instantânea de mensagens entre dispositivos e custo zero de infraestrutura adicional.
 
 ---
 
