@@ -125,18 +125,39 @@ Os requisitos funcionais definem *o que* o sistema deve fazer. Estão divididos 
 *   **FR-8.03:** O sistema deve executar um split de pagamento via Stripe Connect (enviando X% da comissão para o TikiTasco e o restante para o recinto).
 *   **FR-8.04:** O sistema deve ter salvaguardas (Timeouts) para o pagamento, evitando duplo *booking* no mesmo slot durante a janela de pagamento.
 
-### Módulo 9: Gestão de Planos e Regras de Negócio (Freemium vs Premium)
-*   **FR-9.01 (Plano Free):**
+### Módulo 9: Desafios e Jogos Inter-Grupos (Amigáveis & Rivalidades)
+*   **FR-9.01:** O Administrador de um grupo deve poder emitir um "Desafio Amigável" a outro grupo registado na plataforma ou gerar um "Link de Desafio" para envio via WhatsApp para equipas externas.
+*   **FR-9.02:** A plataforma deve disponibilizar um **Mural de Desafios Regionais** ("Procura-se Adversário"), permitindo filtrar equipas disponíveis por localização geográfica (distrito/concelho), modalidade desportiva (5v5, 7v7), dias da semana, horários preferenciais e nível competitivo declarado.
+*   **FR-9.03:** Ao aceitar o desafio, o sistema cria uma **Folha de Jogo Partilhada** onde o escalonamento reflete os jogadores convocados do Grupo A contra os jogadores convocados do Grupo B.
+*   **FR-9.04:** O registo de resultado e ficha estatística (golos e marcadores) inserido pelo Administrador de um grupo requer validação e confirmação rápida pelo Administrador adversário para evitar adulteração de dados.
+*   **FR-9.05:** O sistema deve manter um separador e tabela de histórico de **Confronto Direto (*Head-to-Head*)** acessível em ambos os grupos, contabilizando jogos disputados, vitórias de cada equipa, empates e saldo de golos histórico entre os dois grupos.
+*   **FR-9.06:** A taxa de aluguer do recinto desportivo deve poder ser repartida de forma automática e equitativa (50/50) entre os saldos da Tesouraria/Caixinha dos dois grupos envolvidos.
+
+### Módulo 10: Ligas Regionais, Torneios Oficiais e Competições Sazonais
+*   **FR-10.01:** Os **Super-Administradores da plataforma** devem possuir uma consola administrativa para criar e gerir Ligas e Torneios oficiais, parametrizando:
+    *   Zona geográfica de abrangência (distrito, concelho ou cidade);
+    *   Modalidade desportiva (Futsal 5v5, Futebol 7, etc.);
+    *   Temporada ou Edição (ex: Temporada de Inverno, Taça de Primavera, Torneio Relâmpago de Fim de Semana);
+    *   Taxa de inscrição por equipa (*Entry Fee*) e prazos limites de submissão de candidaturas;
+    *   Estrutura da prova (pontos corridos, fase de grupos, ou eliminatórias com Quartos, Meias e Final).
+*   **FR-10.02:** O sistema deve permitir aos Administradores dos grupos inscrever a sua equipa em Ligas ativas da sua zona geográfica, efetuando o pagamento da taxa de inscrição através do saldo da Tesouraria do grupo ou cartão de crédito via Stripe.
+*   **FR-10.03:** O sistema deve processar e calcular automaticamente a **Tabela Classificativa Oficial** da Liga após a conclusão e validação de cada jornada (Pontos: V=3, E=1, D=0; Jogos; Vitórias; Empates; Derrotas; Golos Marcados; Golos Sofridos; e Diferença de Golos).
+*   **FR-10.04:** O sistema deve manter quadros estatísticos oficiais da competição:
+    *   *Bota de Ouro:* Ranking dos melhores marcadores de todas as equipas inscritas;
+    *   *Luva de Ouro:* Ranking de guarda-redes com menor média de golos sofridos e maior número de jogos sem sofrer (*clean sheets*);
+    *   *Prémio Fairplay:* Classificação disciplinar das equipas com base nas avaliações pós-jogo.
+*   **FR-10.05:** A plataforma deve suportar a atribuição formal e registo de Prémios Oficiais (troféus e medalhas físicas TikiTasco, bem como vouchers promocionais em parceiros patrocinadores da Liga).
+
+### Módulo 11: Gestão de Planos, Packs e Modelo de Negócio (Freemium vs Premium)
+*   **FR-11.01 (Plano Free):**
     *   Um grupo no Plano Free permite um limite máximo de **15 pessoas** (jogadores ativos).
     *   As **únicas funcionalidades disponíveis** no Plano Free são a **Agenda (Votações)** e a **Consulta de Campos**.
     *   O Histórico de Jogos no Plano Free é limitado a um teto de **15 jogos** ou **3 meses** (o critério que for atingido primeiro).
     *   A interface do Plano Free apresenta **anúncios não-intrusivos** e estritamente relacionados com desporto (banners de parceiros locais ou redes de anúncios desportivas).
     *   Cada utilizador só pode ser Administrador/Owner de **1 Grupo Free** (podendo pertencer como jogador a múltiplos grupos).
-*   **FR-9.02 (Plano Premium):**
-    *   A subscrição Premium é associada ao **Grupo** e não ao utilizador individual.
-    *   Apenas o Administrador/Owner do grupo possui permissão para subscrever ou gerir o upgrade do grupo para Premium via Stripe.
-    *   Um utilizador pode ser Administrador de múltiplos (*n*) **Grupos Premium**.
-    *   O Plano Premium desbloqueia para todos os membros do grupo:
+*   **FR-11.02 (Subscrição de Grupo - TikiTasco Pro):**
+    *   A subscrição Pro pode ser contratada na modalidade **Solo (1 Grupo)** a 2.99€/mês ou 24.99€/ano via Stripe Web.
+    *   A subscrição é associada ao **Grupo** e desbloqueia para todos os membros:
         *   Membros ilimitados no grupo;
         *   Módulo de Balneário e Avaliação Mútua 360º de atributos FIFA;
         *   Leaderboard completo com pódio FUT FIFA e estatísticas vitalícias;
@@ -146,6 +167,16 @@ Os requisitos funcionais definem *o que* o sistema deve fazer. Estão divididos 
         *   Upload direto de vídeos e melhores momentos para o Supabase Storage;
         *   Remoção total de anúncios (experiência 100% Ad-Free);
         *   Nomeação de múltiplos Co-Admins ou Tesoureiros.
+*   **FR-11.03 (Packs Multi-Grupo e Gestão de Slots Premium):**
+    *   O sistema deve disponibilizar pacotes de subscrição com desconto para múltiplos grupos:
+        *   *Pack Capitão (3 Grupos):* 6.49€/mês ou 59.99€/ano (~2.16€/grupo);
+        *   *Pack Clube / Liga (5 Grupos):* 9.99€/mês ou 89.99€/ano (~2.00€/grupo).
+    *   O utilizador adquirente recebe uma quota de **Slots Premium** no seu perfil, podendo atribuir, remover ou transferir as vagas Premium livremente entre os grupos em que é Administrador/Owner.
+*   **FR-11.04 (Player Pass / VIP Individual):**
+    *   O sistema deve disponibilizar uma modalidade de compra única vitalícia individual (B2C) a 3.99€ ou 4.99€ para jogadores individuais, concedendo:
+        *   Isenção permanente de anúncios na conta individual do utilizador em qualquer grupo (mesmo grupos no Plano Free);
+        *   Desbloqueio de temas estéticos exclusivos de Cartão FIFA (Ouro Raro, In-Form/TOTW, Retro 90s);
+        *   Painel pessoal com gráficos de evolução temporal de OVR e estatísticas comparativas de desempenho individual.
 
 ---
 

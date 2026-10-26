@@ -14,7 +14,7 @@ A aplicação será servida inicialmente como uma **PWA (Progressive Web App)** 
 ### 2.1 Stack Tecnológica
 *   **Frontend:** React + TypeScript (Vite). Reutilização dos componentes UI da v0.1.
 *   **Backend & Base de Dados:** **Supabase** (PostgreSQL). A escolha de uma base de dados relacional (SQL) é fundamental para a gestão de entidades interligadas (ex: um utilizador pertencer a múltiplos grupos, grupos terem múltiplos eventos).
-    > **Status:** [IN PROGRESS] - A migração dos dados do Google Sheets para Supabase está a decorrer, implementando de raiz a estrutura multi-tenant.
+    > **Status:** [COMPLETED] - A migração do backend e base de dados do Google Sheets para o Supabase está 100% concluída, operando já em produção com PostgreSQL, Supabase Auth e Supabase Storage.
 *   **Hosting Web:** Vercel (ideal para pipelines de CI/CD automatizadas com diferentes ambientes). *(Atualmente: GitHub Pages)*
 *   **Empacotamento Mobile:** CapacitorJS (futuro).
 
@@ -127,31 +127,70 @@ Para garantir uma visão unificada, listam-se abaixo todas as funcionalidades (i
 *   **Ranking de Contribuições por Jogador:** Listagem ordenada por ordem decrescente do valor total contribuído por cada membro (taxas de presença em jogos + contribuições diretas em compras coletivas).
 *   **Auditoria, Edição e Exportação:** Edição de despesas existentes e exportação do balanço financeiro em PDF/Excel.
 
+### 3.7 Desafios e Jogos Inter-Grupos (Amigáveis & Confrontos Diretos)
+*   **Desafio Direto entre Equipas:** O capitão ou Administrador do Grupo A pode emitir um "Desafio Amigável" a outro grupo (via pesquisa de nome ou partilha de link/código de convite de desafio no WhatsApp). O Grupo B aceita o convite na sua interface.
+*   **Mural / Lobby de Desafios ("Procura-se Adversário"):** Mural regional onde equipas podem assinalar disponibilidade para amigáveis indicando zona geográfica (distrito/concelho), modalidade pretendida (5v5, 7v7), dias e horários preferenciais e nível desportivo.
+*   **Folha de Jogo Partilhada (Confronto Real):** O jogo é registado como uma partida oficial entre dois grupos distintos (jogadores convocados do Grupo A vs jogadores do Grupo B), em vez do sorteio interno.
+*   **Validação Bilateral de Resultados:** O resultado final (golos, marcadores) inserido por um administrador requer confirmação rápida do administrador adversário.
+*   **Histórico e Estatísticas *Head-to-Head*:** Registo vitalício do histórico de confrontos diretos entre os dois grupos rivais (ex: jogos disputados, vitórias de cada equipa, golos marcados e saldo histórico).
+*   **Divisão Automática de Custos:** O custo de aluguer do recinto é repartido automaticamente 50/50 entre a Caixinha/Tesouraria do Grupo A e do Grupo B.
+*   **Growth Loop Viral:** Mecanismo primordial de aquisição orgânica: para o Grupo B aceitar o desafio e participar na votação do Homem do Jogo (MVP), o grupo cria a sua conta no TikiTasco, trazendo 10 a 14 novos utilizadores ativos para a plataforma a custo zero.
+
+### 3.8 Ligas Regionais, Torneios Oficiais e Competições Sazonais (Roadmap Super-Admin)
+*   **Criação de Competições pelos Super-Admins:** Os fundadores e administradores globais da plataforma podem criar Ligas e Torneios estruturados por:
+    *   *Zonas Geográficas:* Filtragem por distrito, concelho ou cidade (ex: Lisboa, Porto, Coimbra, etc.);
+    *   *Temporadas (Seasons):* Competições sazonais com calendário formal (ex: Temporada de Inverno, Taça de Primavera, Torneio Relâmpago de Fim de Semana).
+*   **Tabelas Classificativas Automáticas:** Atualização instantânea com Pontos (3 por vitória, 1 por empate), Jogos, Vitórias, Empates, Derrotas, Golos Marcados, Sofridos e Diferença de Golos (*Goal Average*).
+*   **Fases de Eliminatórias (Playoffs):** Suporte arquitetural para fases de grupos seguidas de eliminatórias (Quartos, Meias-Finais e Final da Taça).
+*   **Gamificação Oficial da Liga:** 
+    *   *Bota de Ouro da Liga:* Tabela geral dos melhores marcadores de todas as equipas inscritas;
+    *   *Luva de Ouro:* Guarda-redes com melhor rácio de defesas / jogos sem sofrer golos;
+    *   *Troféu Fairplay:* Reconhecimento da equipa com melhor índice disciplinar.
+*   **Gestão de Taxas de Inscrição e Prémios:**
+    *   Inscrição da equipa na Liga através do saldo da Tesouraria do grupo via Stripe;
+    *   Atribuição de taças oficiais TikiTasco, medalhas e vouchers de parceiros patrocinadores aos vencedores.
+
 ---
 
-## 4. Planos e Funcionalidades (Freemium vs Premium)
+## 4. Planos, Subscrições e Modelo de Monetização
 
-A aplicação adota um modelo de subscrição **por Grupo** (Tenant). As subscrições Premium são contratadas pelo Administrador do Grupo, garantindo que todos os membros da equipa usufruem das funcionalidades avançadas.
+A aplicação opera através de um ecossistema equilibrado que combina subscrições recorrentes de grupo, pacotes multi-equipa com desconto, passes de customização individual e monetização de competições desportivas:
 
 ### ⚽ Plano Amador (100% Grátis)
 Desenhado para grupos informais que necessitam apenas da organização essencial das convocatórias e marcação de campos:
 *   **Funcionalidades Incluídas:** As **únicas funcionalidades disponíveis** no Plano Free são a **Agenda Semanal (Votações)** e a **Consulta de Campos**.
 *   **Limite de Membros:** Máximo de **15 pessoas** ativas por grupo.
 *   **Histórico de Jogos:** Limitado a um teto máximo de **15 jogos** ou **3 meses** de histórico (o que for atingido primeiro).
-*   **Publicidade:** Exibição de anúncios **não-intrusivos** e estritamente contextuais relacionados com **Desporto** (banners de parceiros desportivos locais, marcas ou material desportivo).
+*   **Publicidade:** Exibição de anúncios **não-intrusivos** e estritamente contextuais relacionados com **Desporto** (banners estáticos de parceiros desportivos locais, marcas ou material desportivo).
 *   **Regra de Administrador:** Cada utilizador só pode ser Administrador/Owner de **1 Grupo Free** (podendo pertencer como jogador comum a outros grupos).
 
-### 🏆 Plano TikiTasco Pro (Ex: 2.99€ / Mês por Grupo)
-Subscrição associada ao **Grupo**, ativada e gerida exclusivamente pelo **Administrador do Grupo** via Stripe Web:
-*   **Multigrupos para Admins:** Um utilizador pode ser Administrador de múltiplos (*n*) **Grupos Premium**.
-*   **Sem Anúncios:** Experiência 100% limpa e focada (Ad-Free) para todos os membros do grupo.
-*   **Membros Ilimitados:** Sem restrição de 15 pessoas (perfeito para grupos alargados e rotativos).
-*   **Balneário, Gamification e Leaderboard:** Desbloqueio completo da Avaliação 360º de atributos FIFA, pódio FUT FIFA, histórico estatístico e radar de cada jogador.
-*   **Team Generator Inteligente:** Balanceamento automático de 2 e 3 equipas com distribuição de guarda-redes e transferência direta para a folha de jogo.
-*   **Histórico Vitalício e Registo Multi-Modalidade:** Registo nas 3 modalidades (Standard, Rei da Pista e Rotação Dinâmica) sem limite de 15 jogos ou 3 meses.
-*   **Módulo de Tesouraria Completo:** Acesso total à gestão da Caixinha do grupo, taxas por presença, despesas coletivas com comprovativos fotográficos (upload de faturas) e exportação contabilística (PDF/Excel).
-*   **Multimédia Avançada:** Capacidade de fazer **upload direto de ficheiros de vídeo e melhores momentos** (highlights) para o Storage seguro da plataforma com janela de retenção.
-*   **Permissões Avançadas:** Possibilidade de nomear múltiplos Co-Admins e Tesoureiros no grupo.
+### 🏆 Subscrições de Grupo (TikiTasco Pro & Packs Multi-Grupo)
+Subscrições contratadas pelo Administrador do Grupo via Stripe Web, desbloqueando a experiência integral para todos os membros da equipa:
+*   **Benefícios Coletivos Desbloqueados:**
+    *   **Sem Anúncios:** Experiência 100% limpa e focada (Ad-Free) para todos os elementos do grupo;
+    *   **Membros Ilimitados:** Sem restrição de 15 pessoas (perfeito para grupos alargados e rotativos);
+    *   **Balneário, Gamification e Leaderboard:** Avaliação 360º de atributos FIFA, pódio FUT FIFA, histórico estatístico e radar de cada jogador;
+    *   **Team Generator Inteligente:** Balanceamento automático de 2 e 3 equipas com distribuição de guarda-redes e transferência direta para a folha de jogo;
+    *   **Histórico Vitalício e Registo Multi-Modalidade:** Registo nas 3 modalidades (Standard, Rei da Pista e Rotação Dinâmica) sem limites de jogos ou datas;
+    *   **Módulo de Tesouraria Completo:** Gestão da Caixinha do grupo, taxas por presença, despesas coletivas com anexação fotográfica de faturas e exportação contabilística (PDF/Excel);
+    *   **Multimédia Avançada:** Upload direto de ficheiros de vídeo e highlights para o Storage seguro com janela de retenção;
+    *   **Permissões Avançadas:** Nomeação de múltiplos Co-Admins e Tesoureiros no grupo.
+*   **Opções de Subscrição:**
+    *   **Plano Solo (1 Grupo):** **2.99€ / mês** ou **24.99€ / ano** (2 meses grátis).
+    *   **Pack Capitão (3 Grupos):** **6.49€ / mês** ou **59.99€ / ano** (~2.16€ por grupo/mês). Ideal para utilizadores que gerem várias equipas (ex: amigos, trabalho, universidade).
+    *   **Pack Clube / Liga (5 Grupos):** **9.99€ / mês** ou **89.99€ / ano** (~2.00€ por grupo/mês). Desenhado para empresas, pequenas associações ou academias desportivas.
+    *   *Gestão por Slots Premium:* O utilizador gere uma quota de vagas Premium no seu perfil, podendo atribuir, desvincular ou transferir vagas livremente entre os grupos que administra.
+
+### 🌟 Player Pass / VIP (Individual B2C - Compra Única Vitalícia)
+Opção autónoma de baixo atrito voltada para o jogador individual vaidoso que pretende personalização estética (ex: **3.99€ ou 4.99€** compra única vitalícia):
+*   **Ad-Free Pessoal:** Isenção total de anúncios na conta pessoal, independentemente de os grupos onde joga serem Free ou Pro;
+*   **Cartões FIFA Exclusivos:** Desbloqueio de temas visuais raros para o Cartão de Jogador (Ouro Raro, In-Form/TOTW preto, Edição Retro 90s);
+*   **Estatísticas Avançadas Pessoais:** Gráficos interativos de evolução temporal de OVR e atributos, histórico comparativo com adversários e distintivos de mérito (*Badges*) visíveis no perfil.
+
+### 🏅 Ligas e Torneios Oficiais (Monetização de Eventos)
+*   **Taxas de Inscrição por Competição (*Entry Fees*):** Pagamento por equipa (ex: **60€ a 120€**) para inscrição em ligas sazonais de 2 a 3 meses ou torneios relâmpago, pago diretamente via Caixinha do grupo;
+*   **Patrocínios e Naming Rights:** Parcerias com patrocinadores oficiais da competição (marcas de bebidas, recintos desportivos, lojas de equipamento);
+*   **Margem em Aluguer de Pavilhões:** Negociação de horas de jogo em bloco a preços de revenda reduzidos.
 
 ---
 
