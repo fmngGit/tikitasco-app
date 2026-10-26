@@ -84,7 +84,8 @@ CREATE TABLE votes (
     guarda_redes NUMERIC DEFAULT 50,
     fairplay NUMERIC DEFAULT 50,
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    UNIQUE(voter_email, target_email)
+    UNIQUE(voter_email, target_email),
+    CONSTRAINT no_self_voting CHECK (voter_email <> target_email)
 );
 
 -- 7. Expenses
@@ -163,6 +164,11 @@ CREATE POLICY "Enable all access for authenticated users" ON global_locations FO
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON groups FOR SELECT USING (true);
 
+ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable read access for all users" ON group_members FOR SELECT USING (true);
+CREATE POLICY "Enable all access for authenticated users" ON group_members FOR ALL USING (auth.role() = 'authenticated');
+
+
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON public.users FOR SELECT USING (true);
 CREATE POLICY "Enable all access for authenticated users" ON public.users FOR ALL USING (auth.role() = 'authenticated');
@@ -188,3 +194,35 @@ CREATE POLICY "Allow Public Read on tikitasco-storage" ON storage.objects FOR SE
 CREATE POLICY "Allow Authenticated Upload on tikitasco-storage" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'tikitasco-storage' AND auth.role() = 'authenticated');
 CREATE POLICY "Allow Authenticated Update on tikitasco-storage" ON storage.objects FOR UPDATE USING (bucket_id = 'tikitasco-storage' AND auth.role() = 'authenticated');
 CREATE POLICY "Allow Authenticated Delete on tikitasco-storage" ON storage.objects FOR DELETE USING (bucket_id = 'tikitasco-storage' AND auth.role() = 'authenticated');
+
+-- Automatic User Provisioning Trigger (auth.users -> public.users & group_members)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+DECLARE
+  default_gid UUID := '34f5269e-1aac-4041-93a9-0841bb7cf3ed';
+BEGIN
+  INSERT INTO public.users (id, email, nome, avatar_url, is_guest)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+    COALESCE(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture', ''),
+    false
+  )
+  ON CONFLICT (email) DO UPDATE SET
+    id = EXCLUDED.id,
+    nome = CASE WHEN public.users.nome = '' OR public.users.nome IS NULL THEN EXCLUDED.nome ELSE public.users.nome END,
+    avatar_url = CASE WHEN public.users.avatar_url = '' OR public.users.avatar_url IS NULL THEN EXCLUDED.avatar_url ELSE public.users.avatar_url END;
+
+  INSERT INTO public.group_members (user_email, group_id, role)
+  VALUES (new.email, default_gid, 'member')
+  ON CONFLICT (user_email, group_id) DO NOTHING;
+
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT OR UPDATE ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

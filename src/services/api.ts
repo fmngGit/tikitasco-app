@@ -212,34 +212,129 @@ export const fetchLocations = async (): Promise<Location[]> => {
 };
 
 export const fetchPolls = async (weekId: string, _forceRefresh?: boolean): Promise<PollVote[]> => {
-  const { data, error } = await supabase.from('polls').select('*').eq('target_week', weekId);
+  const { data, error } = await supabase
+    .from('polls')
+    .select('*')
+    .eq('target_week', weekId)
+    .order('timestamp', { ascending: false });
+
   if (error) {
     console.error("Error fetching polls:", error);
     return [];
   }
-  return data.map(p => ({
-    TargetWeek: p.target_week, UserEmail: p.user_email, Timestamp: p.timestamp,
-    Monday: p.monday, Tuesday: p.tuesday, Wednesday: p.wednesday, Thursday: p.thursday, Locations: p.locations
-  }));
+
+  const seenUsers = new Set<string>();
+  const uniquePolls: PollVote[] = [];
+
+  for (const p of data || []) {
+    const emailKey = (p.user_email || '').toLowerCase().trim();
+    if (!emailKey || seenUsers.has(emailKey)) continue;
+    seenUsers.add(emailKey);
+
+    const parseArray = (val: any) => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try {
+          const parsed = JSON.parse(val);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+
+    uniquePolls.push({
+      TargetWeek: p.target_week,
+      UserEmail: p.user_email,
+      Timestamp: p.timestamp,
+      Monday: parseArray(p.monday),
+      Tuesday: parseArray(p.tuesday),
+      Wednesday: parseArray(p.wednesday),
+      Thursday: parseArray(p.thursday),
+      Locations: parseArray(p.locations)
+    });
+  }
+
+  return uniquePolls;
 };
 
+export const DEFAULT_GROUP_ID = '34f5269e-1aac-4041-93a9-0841bb7cf3ed';
+
 // WRITE OPERATIONS
-export const registerUser = async (): Promise<{ success: boolean; isNewUser: boolean }> => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { success: false, isNewUser: false };
-
-  const user = session.user;
-  const { data } = await supabase.from('users').select('email').eq('email', user.email).single();
-
-  if (!data) {
-    await supabase.from('users').insert({
-      email: user.email,
-      nome: user.user_metadata.full_name || 'User',
-      avatar_url: user.user_metadata.avatar_url || ''
-    });
-    return { success: true, isNewUser: true };
+export const ensureUserExists = async (user?: any): Promise<{ email: string; name: string; picture: string } | null> => {
+  let authUser = user;
+  if (!authUser) {
+    const { data: { session } } = await supabase.auth.getSession();
+    authUser = session?.user;
   }
-  return { success: true, isNewUser: false };
+  if (!authUser || !authUser.email) return null;
+
+  try {
+    const { data: dbUser } = await supabase
+      .from('users')
+      .select('id, email, nome, avatar_url')
+      .eq('email', authUser.email)
+      .maybeSingle();
+
+    const userMetadata = authUser.user_metadata || {};
+    const fallbackName = userMetadata.full_name || userMetadata.name || authUser.email.split('@')[0] || 'User';
+    const fallbackAvatar = userMetadata.avatar_url || userMetadata.picture || '';
+
+    if (!dbUser) {
+      // Criar utilizador na tabela public.users de forma idempotente
+      const { error: insErr } = await supabase.from('users').upsert({
+        id: authUser.id,
+        email: authUser.email,
+        nome: fallbackName,
+        avatar_url: fallbackAvatar,
+        is_guest: false
+      }, { onConflict: 'email' });
+      if (insErr) {
+        console.error("Erro ao criar utilizador em public.users:", insErr);
+      }
+
+      // Associar ao grupo padrão
+      await supabase.from('group_members').upsert({
+        user_email: authUser.email,
+        group_id: DEFAULT_GROUP_ID,
+        role: 'member'
+      }, { onConflict: 'user_email,group_id' });
+
+      invalidateUsersCache();
+
+      return {
+        email: authUser.email,
+        name: fallbackName,
+        picture: fallbackAvatar
+      };
+    } else {
+      // Vincular ID se o utilizador existir mas não tiver auth ID registado
+      if (!dbUser.id && authUser.id) {
+        await supabase.from('users').update({ id: authUser.id }).eq('email', authUser.email);
+      }
+      // Garantir associação ao grupo
+      await supabase.from('group_members').upsert({
+        user_email: authUser.email,
+        group_id: DEFAULT_GROUP_ID,
+        role: 'member'
+      }, { onConflict: 'user_email,group_id' });
+
+      return {
+        email: dbUser.email,
+        name: dbUser.nome || fallbackName,
+        picture: dbUser.avatar_url || fallbackAvatar
+      };
+    }
+  } catch (err) {
+    console.error("Erro em ensureUserExists:", err);
+    return null;
+  }
+};
+
+export const registerUser = async (): Promise<{ success: boolean; isNewUser: boolean }> => {
+  const profile = await ensureUserExists();
+  return { success: !!profile, isNewUser: false };
 };
 
 export const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
@@ -255,12 +350,25 @@ export const updateProfile = async (
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { success: false, error: 'Unauthorized' };
 
-  const updates: any = {};
-  if (data.name) updates.nome = data.name;
-  if (data.avatar) updates.avatar_url = data.avatar;
+  const { data: currentUser } = await supabase.from('users').select('nome, avatar_url').eq('email', session.user.email).maybeSingle();
+  const nome = data.name !== undefined ? data.name : (currentUser?.nome || session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'User');
+  const avatar_url = data.avatar !== undefined ? data.avatar : (currentUser?.avatar_url || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '');
 
-  const { error } = await supabase.from('users').update(updates).eq('email', session.user.email);
+  const { error } = await supabase.from('users').upsert({
+    id: session.user.id,
+    email: session.user.email,
+    nome,
+    avatar_url,
+    is_guest: false
+  }, { onConflict: 'email' });
+
   if (error) return { success: false, error: error.message };
+
+  await supabase.from('group_members').upsert({
+    user_email: session.user.email,
+    group_id: DEFAULT_GROUP_ID,
+    role: 'member'
+  }, { onConflict: 'user_email,group_id' });
 
   invalidateUsersCache();
   return { success: true, message: 'Perfil atualizado' };
@@ -271,6 +379,12 @@ export const updateAvatar = async (_token: string, base64: string) => updateProf
 export const votePlayer = async (_token: string, targetEmail: string, ataque: number, defesa: number, fisico: number, passe: number, guardaRedes: number, fairplay: number) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { success: false, error: 'Unauthorized' };
+
+  if (session.user.email?.toLowerCase().trim() === targetEmail.toLowerCase().trim()) {
+    return { success: false, error: 'Não podes votar em ti próprio!' };
+  }
+
+  await ensureUserExists(session.user);
 
   const { error } = await supabase.from('votes').upsert({
     voter_email: session.user.email,
@@ -297,8 +411,6 @@ export const fetchMyVotes = async (): Promise<Record<string, any>> => {
   });
   return res;
 };
-
-const DEFAULT_GROUP_ID = '34f5269e-1aac-4041-93a9-0841bb7cf3ed';
 
 export const registerGame = async (
   _token: string,
@@ -448,13 +560,16 @@ export const registerExpense = async (
   formattedContribs?: any[]
 ): Promise<{ success: boolean; error?: string }> => {
   const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user) {
+    await ensureUserExists(session.user);
+  }
   const { error } = await supabase.from('expenses').insert({
     group_id: DEFAULT_GROUP_ID,
     date: date ? new Date(date).toISOString() : new Date().toISOString(),
     descricao: description,
     valor: totalAmount,
     foto_url: photoUrlStr || null,
-    registado_por: session?.user?.email || 'utilizador',
+    registado_por: session?.user?.email || null,
     valor_caixa: boxAmount || 0,
     contribuicoes_diretas: formattedContribs || []
   });
@@ -501,6 +616,9 @@ export const submitPollVote = async (_token: string, targetWeek: string, monday:
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { success: false, error: 'User not authenticated' };
   
+  // Garantir que o utilizador existe em public.users para não violar a foreign key
+  await ensureUserExists(session.user);
+
   const { error } = await supabase.from('polls').upsert({
     group_id: DEFAULT_GROUP_ID,
     target_week: targetWeek,
@@ -527,25 +645,31 @@ export const createGuestPlayer = async (
   if (!name || !name.trim()) return { success: false, error: "Nome inválido." };
   
   const guestEmail = `guest_${crypto.randomUUID().substring(0, 8)}@convidado.tikitasco`;
-  const { data: { session } } = await supabase.auth.getSession();
   
   const { data, error } = await supabase.from('users').insert({
     email: guestEmail,
-    name: name.trim(),
+    nome: name.trim(),
     avatar_url: '',
-    is_guest: true,
-    created_by: session?.user?.email || null
+    is_guest: true
   }).select().single();
 
   if (error) {
     console.error("Error creating guest player:", error);
     return { success: false, error: error.message };
   }
+
+  // Associar o jogador convidado ao grupo padrão
+  await supabase.from('group_members').upsert({
+    user_email: guestEmail,
+    group_id: DEFAULT_GROUP_ID,
+    role: 'member'
+  }, { onConflict: 'user_email,group_id' });
+
   invalidateUsersCache();
   return {
     success: true,
     user: {
-      Nome: data.name,
+      Nome: data.nome,
       Email: data.email,
       Vitorias: 0,
       Empates: 0,
@@ -564,7 +688,7 @@ export const editGuestName = async (
   newName: string
 ): Promise<{ success: boolean; error?: string }> => {
   if (!newName || !newName.trim()) return { success: false, error: "Nome inválido." };
-  const { error } = await supabase.from('users').update({ name: newName.trim() }).eq('email', guestEmail);
+  const { error } = await supabase.from('users').update({ nome: newName.trim() }).eq('email', guestEmail);
   if (error) {
     console.error("Error updating guest name:", error);
     return { success: false, error: error.message };

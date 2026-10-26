@@ -27,10 +27,9 @@ Abre `http://localhost:5173` no browser para confirmar que tudo funciona como es
 ### Passo 2: Compilar e Publicar no GitHub Pages
 Quando estiveres pronto para enviar para o ar, corre no terminal:
 ```bash
-npm run build
 npm run deploy
 ```
-> O comando `npm run deploy` pega na versão otimizada gerada na pasta `dist` (incluindo as tuas variáveis do `.env.local` que configuraste para o Supabase) e envia-a automaticamente para o ramo `gh-pages` do teu GitHub. Em cerca de 1 a 2 minutos, o site publicado (`https://o-teu-username.github.io/tikitasco-app/`) fica atualizado!
+> O comando `npm run deploy` executa automaticamente o `npm run build` em primeiro lugar (graças ao hook `predeploy` no `package.json`), garantindo que não existem erros de TypeScript antes de publicar. Em seguida, pega na versão otimizada gerada na pasta `dist` (com as tuas variáveis do `.env.local` embutidas) e envia-a automaticamente para o ramo `gh-pages` do teu GitHub. Em cerca de 1 a 2 minutos, o site publicado fica atualizado!
 
 ### Passo 3: Guardar as Alterações no Git
 Para manter o teu histórico de código guardado no GitHub, certifica-te de que fazes os commits na branch principal (`main`):

@@ -61,11 +61,6 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({ location, on
 
   const uploadFiles = async (): Promise<string[]> => {
     let uploadedUrls: string[] = [];
-    const GAS_URL = import.meta.env.VITE_GAS_URL;
-    
-    if (!GAS_URL || GAS_URL.includes("COLA_AQUI")) {
-      return files.map(f => `mock-url-${f.name}`);
-    }
 
     for (let i = 0; i < files.length; i++) {
       setLoadingText(`A carregar anexo ${i + 1} de ${files.length}...`);

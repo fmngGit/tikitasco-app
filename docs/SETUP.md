@@ -1,87 +1,88 @@
-# Guia de Configuração Técnica (Backend & Google Cloud)
+# Guia de Configuração Técnica (Supabase & GitHub Pages)
 
-Bem-vindo ao TikiTasco! Para que tudo funcione de forma gratuita e no teu controlo total, terás de seguir os passos na tua conta Google.
-
----
-
-## 1. Criar o Projeto na Google Cloud (Para o Google Login)
-
-Para que os utilizadores possam fazer login, precisamos de um Client ID.
-
-1. Acede a: [Google Cloud Console](https://console.cloud.google.com/)
-2. Cria um novo projeto (ex: `tiki-tasco-app`).
-3. Vai a **"APIs e Serviços" > "Ecrã de Consentimento OAuth"**.
-   - Tipo de utilizador: **Externo**.
-   - Preenche o nome da app (TikiTasco), o teu email, etc.
-   - Podes ignorar os *Scopes* (basta os campos de email/perfil default).
-   - Adiciona os utilizadores de teste (os emails dos teus amigos que vão testar). Quando estiver pronto, podes "Publicar" a App.
-4. Vai a **"Credenciais" > "Criar Credenciais" > "ID de Cliente OAuth"**.
-   - Tipo de aplicação: **Aplicação Web**.
-   - Origens de JavaScript autorizadas: Adiciona `http://localhost:5173` (para desenvolvimento) e o URL final do teu GitHub Pages (ex: `https://o-teu-github.github.io`).
-5. **Copia o Client ID** gerado. Vais colar este ID no ficheiro `.env` do frontend.
+Bem-vindo ao TikiTasco! A aplicação funciona com uma infraestrutura 100% gratuita utilizando **Supabase** (PostgreSQL na cloud, Auth e Storage) e alojamento estático no **GitHub Pages**.
 
 ---
 
-## 2. Criar a Base de Dados (Google Sheets)
+## 1. Configurar o Projeto no Supabase
 
-1. Vai ao teu Google Drive e cria um novo **Google Sheets** (Folha de Cálculo) com o nome "TikiTasco DB".
-2. Copia o ID da folha de cálculo através do URL.
-   *Exemplo: `https://docs.google.com/spreadsheets/d/AQUI-ESTA-O-ID/edit`* -> Copia apenas a parte `AQUI-ESTA-O-ID`.
-
----
-
-## 3. Configurar a API Segura (Google Apps Script)
-
-1. Na folha de cálculo que criaste, vai ao menu superior: **"Extensões" > "Apps Script"**.
-2. Irá abrir uma nova janela. Apaga tudo o que lá estiver e **cola o código que fornecemos no ficheiro `backend.gs`** (dentro da pasta `docs`).
-3. No início do código, altera a variável `SPREADSHEET_ID` para o ID que copiaste no passo anterior.
-4. Grava (botão de disquete 💾).
-5. No menu superior da janela do Apps Script, seleciona a função **`setupSheets`** e clica em **"Executar"**. (Irá pedir autorizações na tua conta Google, incluindo acesso ao Google Drive para gerir os vídeos dos jogos. Aceita os avisos carregando em "Avançado" -> "Ir para TikiTasco (não seguro)").
-   - **Nota:** A função `setupSheets()` é inteligente e aditiva: se já tiveres dados antigos, ela apenas adiciona as novas colunas necessárias sem apagar nada!
-6. **Publicar ou Atualizar a API:**
-   - **Se for a primeira vez:**
-     - Clica no botão azul no topo superior direito **"Implementar" (Deploy)** > **"Nova implementação"**.
-     - Clica na engrenagem ao lado de "Selecionar tipo" e escolhe **"Aplicação Web"**.
-     - Executar como: **"Eu"** (o teu email).
-     - Quem tem acesso: **"Qualquer pessoa"**.
-     - Clica em **"Implementar"** e copia o URL gerado para o teu ficheiro `.env`.
-   - **Se já tinhas a API publicada e estás a atualizar o código:**
-     - Clica em **"Implementar"** > **"Gerir implementações"**.
-     - Clica no ícone de lápis ✏️ (Editar).
-     - No campo "Versão", escolhe obrigatoriamente **"Nova versão"**!
-     - Clica em **"Implementar"**.
-7. **(Opcional mas Recomendado) Agendar Limpeza Automática dos Vídeos a 30 Dias:**
-   - Na barra lateral esquerda do Apps Script, clica no ícone de relógio ⏰ (**"Acionadores" / Triggers**).
-   - Clica em **"+ Adicionar acionador"** no canto inferior direito.
-   - Escolhe a função: **`cleanupExpiredVideos`**.
-   - Selecionar a origem do evento: **Baseado no tempo**.
-   - Tipo de acionador baseado no tempo: **Temporizador diário**.
-   - Hora do dia: Por exemplo, entre a meia-noite e a 1h.
-   - Grava! Agora, todos os dias à noite, o script verifica se algum jogo tem vídeo com mais de 30 dias e envia-o para o lixo da tua Google Drive para manter o teu espaço livre.
+1. Acede a [supabase.com](https://supabase.com) e cria uma conta gratuita (ou inicia sessão).
+2. Clica em **"New Project"** e escolhe um nome (ex: `tikitasco-db`), uma password para a base de dados e a região mais próxima (ex: Central EU / Frankfurt).
+3. Aguarda cerca de 1 a 2 minutos enquanto o Supabase prepara a tua instância.
 
 ---
 
-## 4. Hospedar o Site Gratuitamente (GitHub Pages)
+## 2. Criar a Estrutura da Base de Dados (Tabelas, RLS e Triggers)
 
-1. **Configurar o Vite (`vite.config.ts`):**
-   Verifica se a propriedade `base` contém o nome do teu repositório:
-   ```ts
-   export default defineConfig({
-     plugins: [react()],
-     base: '/tikitasco-app/',
-   })
+1. No menu lateral esquerdo do teu painel Supabase, vai a **SQL Editor**.
+2. Clica em **"New query"**.
+3. Abre o ficheiro [supabase_schema.sql](../supabase_schema.sql) deste repositório, copia todo o conteúdo e cola-o no editor SQL do Supabase.
+4. Clica no botão **"Run"** (no canto inferior direito do editor).
+5. Este script cria automaticamente:
+   - Todas as tabelas da aplicação (`users`, `group_members`, `games`, `votes`, `expenses`, `polls`, `global_locations`);
+   - A view calculada `player_stats` para o Leaderboard dinâmico;
+   - As políticas de segurança (**Row Level Security - RLS**) para leitura e escrita autenticada;
+   - O trigger automático **`on_auth_user_created`** que sincroniza novos utilizadores de `auth.users` diretamente para `public.users` e associa ao grupo padrão.
+
+---
+
+## 3. Configurar o Armazenamento (Storage)
+
+1. No menu lateral esquerdo, clica em **Storage**.
+2. Se o bucket `tikitasco-storage` ainda não tiver sido criado automaticamente pelo script SQL:
+   - Clica em **"New bucket"**.
+   - Nome do bucket: `tikitasco-storage`.
+   - Marca a opção **Public bucket** (para que as fotos de campos e recibos possam ser lidas pelos utilizadores).
+   - Clica em **"Save"**.
+
+---
+
+## 4. Configurar Autenticação Google OAuth
+
+Para permitir o login dos membros com as respetivas contas Google:
+
+1. No Supabase, vai a **Authentication > Providers** e clica em **Google**.
+2. Copia o **Callback URL (for OAuth)** fornecido pelo Supabase (algo como `https://<ref>.supabase.co/auth/v1/callback`).
+3. Acede à [Google Cloud Console](https://console.cloud.google.com/):
+   - Vai a **APIs & Services > Credentials**.
+   - Cria um **OAuth 2.0 Client ID** do tipo **Web application**.
+   - Em **Authorized redirect URIs**, adiciona o Callback URL que copiaste do Supabase no passo 2.
+   - Em **Authorized JavaScript origins**, adiciona o teu domínio do GitHub Pages (ex: `https://o-teu-username.github.io`) e `http://localhost:5173` para testes locais.
+   - Guarda e copia o **Client ID** e o **Client Secret**.
+4. Regressa ao painel do Supabase, cola o **Client ID** e o **Client Secret** nas definições do Google Provider e ativa o interruptor (**Enable Provider**). Clica em **Save**.
+
+---
+
+## 5. Configurar o Ambiente Local (`.env.local`)
+
+Na raiz do projeto no teu computador:
+
+1. Cria (ou edita) o ficheiro `.env.local`:
+   ```env
+   VITE_SUPABASE_URL="https://o-teu-projeto.supabase.co"
+   VITE_SUPABASE_ANON_KEY="a-tua-chave-anon-publica"
    ```
+2. Podes encontrar estes valores no Supabase em **Project Settings > API**.
+
+---
+
+## 6. Testar e Publicar no GitHub Pages
+
+1. **Testar localmente:**
+   ```bash
+   npm run dev
+   ```
+   Abre `http://localhost:5173` no browser e confirma o login e funcionamento.
+
 2. **Publicar no GitHub Pages:**
    ```bash
-   npm run build
    npm run deploy
    ```
-3. **Origens de JavaScript Autorizadas (Google Login):**
-   Não te esqueças de colocar `https://o-teu-username.github.io` nas Origens de JavaScript autorizadas na Google Cloud Console para o botão de login funcionar no site publicado.
+   *(O comando compila o código com as tuas variáveis de ambiente e faz deploy automático para o ramo `gh-pages`).*
 
 ---
 
-## 5. Como Fazer Atualizações Futuras
+## 7. Atualizações Futuras
 
-Para saberes o passo a passo exato sempre que quiseres colocar novas alterações online (seja no código da interface ou no Google Apps Script), consulta o guia dedicado em:
+Para saberes como colocar novas atualizações online sem complicações, consulta o guia:
 📖 **[docs/ATUALIZACOES.md](./ATUALIZACOES.md)**

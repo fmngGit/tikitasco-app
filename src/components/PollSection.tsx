@@ -40,60 +40,85 @@ export const PollSection: React.FC<PollSectionProps> = ({ locations, users }) =>
   const [hasVoted, setHasVoted] = useState(false);
   const [cannotPlay, setCannotPlay] = useState(false);
   const [expandedLoc, setExpandedLoc] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
 
   const hours = ["19:00", "20:00", "21:00", "22:00"];
 
   useEffect(() => {
-    loadPolls();
-  }, [targetWeek]);
+    loadPolls(true);
+  }, [targetWeek, profile?.email]);
 
-  const loadPolls = async () => {
+  const loadPolls = async (syncFormWithDb = false) => {
     setLoading(true);
     const data = await fetchPolls(targetWeek, true);
     setPolls(data);
     
     // Check if I already voted
-    const myVote = data.find(p => p.UserEmail === profile?.email);
+    const userEmail = profile?.email?.toLowerCase().trim();
+    const myVote = userEmail ? data.find(p => p.UserEmail?.toLowerCase().trim() === userEmail) : null;
+    
     if (myVote) {
-      setMyMonday(myVote.Monday || []);
-      setMyTuesday(myVote.Tuesday || []);
-      setMyWednesday(myVote.Wednesday || []);
-      setMyThursday(myVote.Thursday || []);
-      setMyLocations(myVote.Locations || []);
       setHasVoted(true);
-      const hasAnyHour = (myVote.Monday?.length || 0) + (myVote.Tuesday?.length || 0) + (myVote.Wednesday?.length || 0) + (myVote.Thursday?.length || 0) > 0;
-      setCannotPlay(!hasAnyHour);
+      if (syncFormWithDb) {
+        setMyMonday(myVote.Monday || []);
+        setMyTuesday(myVote.Tuesday || []);
+        setMyWednesday(myVote.Wednesday || []);
+        setMyThursday(myVote.Thursday || []);
+        setMyLocations(myVote.Locations || []);
+        const hasAnyHour = (myVote.Monday?.length || 0) + (myVote.Tuesday?.length || 0) + (myVote.Wednesday?.length || 0) + (myVote.Thursday?.length || 0) > 0;
+        setCannotPlay(!hasAnyHour);
+      }
     }
     setLoading(false);
   };
 
-  const handleToggleHour = (daySetter: React.Dispatch<React.SetStateAction<string[]>>, current: string[], hour: string) => {
-    if (current.includes(hour)) {
-      daySetter(current.filter(h => h !== hour));
-    } else {
-      daySetter([...current, hour]);
+  const handleToggleHour = (daySetter: React.Dispatch<React.SetStateAction<string[]>>, hour: string) => {
+    if (cannotPlay) {
+      setCannotPlay(false);
     }
+    daySetter(prev => prev.includes(hour) ? prev.filter(h => h !== hour) : [...prev, hour]);
   };
 
   const handleToggleLocation = (locId: string) => {
-    if (myLocations.includes(locId)) {
-      setMyLocations(myLocations.filter(l => l !== locId));
-    } else {
-      setMyLocations([...myLocations, locId]);
-    }
+    setMyLocations(prev => prev.includes(locId) ? prev.filter(l => l !== locId) : [...prev, locId]);
   };
 
+  // Regras de validação
+  const totalHoursSelected = cannotPlay ? 0 : (myMonday.length + myTuesday.length + myWednesday.length + myThursday.length);
+  const hasAvailability = cannotPlay || totalHoursSelected > 0;
+  const hasLocations = cannotPlay || myLocations.length > 0;
+  const isValid = hasAvailability && hasLocations;
+
   const submitVote = async () => {
-    if (!token) return;
+    if (!token && !profile) {
+      alert("Por favor inicia sessão para poderes submeter o teu voto.");
+      return;
+    }
+
+    if (!isValid) {
+      if (!hasAvailability) {
+        alert("Por favor seleciona a tua disponibilidade horária (ou indica que não podes jogar esta semana).");
+      } else if (!hasLocations) {
+        alert("Por favor seleciona pelo menos 1 campo aceitável onde possas jogar.");
+      }
+      return;
+    }
+
     setSaving(true);
+    setJustSaved(false);
     const m1 = cannotPlay ? [] : myMonday;
     const m2 = cannotPlay ? [] : myTuesday;
     const m3 = cannotPlay ? [] : myWednesday;
     const m4 = cannotPlay ? [] : myThursday;
-    const res = await submitPollVote(token, targetWeek, m1, m2, m3, m4, myLocations);
+    const locs = cannotPlay ? [] : myLocations;
+
+    const res = await submitPollVote(token || '', targetWeek, m1, m2, m3, m4, locs);
     if (res.success) {
       setHasVoted(true);
-      await loadPolls();
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 3500);
+      // Atualizar lista de sondagens dos colegas sem reescrever o formulário local
+      await loadPolls(false);
     } else {
       alert("Erro ao gravar: " + res.error);
     }
@@ -202,7 +227,7 @@ export const PollSection: React.FC<PollSectionProps> = ({ locations, users }) =>
           return (
             <button
               key={hour}
-              onClick={() => handleToggleHour(setter, state, hour)}
+              onClick={() => handleToggleHour(setter, hour)}
               style={{
                 background: active ? 'var(--primary)' : 'rgba(0,0,0,0.3)',
                 color: active ? '#fff' : 'var(--text-muted)',
@@ -269,34 +294,104 @@ export const PollSection: React.FC<PollSectionProps> = ({ locations, users }) =>
         <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <MapPin size={20} color="var(--primary)" /> 2. Campos Aceitáveis
         </h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '2rem' }}>
-          {locations.map(loc => {
-            const active = myLocations.includes(loc.LocationID);
-            return (
-              <button
-                key={loc.LocationID}
-                onClick={() => handleToggleLocation(loc.LocationID)}
-                style={{
-                  background: active ? 'var(--primary)' : 'rgba(0,0,0,0.3)',
-                  color: active ? '#fff' : 'var(--text-muted)',
-                  border: active ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.05)',
-                  padding: '0.6rem 1rem',
-                  borderRadius: '20px',
-                  cursor: 'pointer',
-                  fontWeight: active ? 'bold' : 'normal',
-                  transition: 'all 0.2s',
-                  fontSize: '0.85rem'
-                }}
-              >
-                {loc.Nome}
-              </button>
-            )
-          })}
-        </div>
 
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-          <button onClick={submitVote} disabled={saving} className="btn-primary" style={{ minWidth: '200px' }}>
-            {saving ? 'A gravar...' : hasVoted ? 'Atualizar Escolhas' : 'Submeter Escolhas'}
+        {cannotPlay ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem', fontStyle: 'italic' }}>
+            Marcaste que não podes jogar esta semana, pelo que a seleção de campos não é necessária.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '2rem' }}>
+            {locations.map(loc => {
+              const active = myLocations.includes(loc.LocationID);
+              return (
+                <button
+                  key={loc.LocationID}
+                  onClick={() => handleToggleLocation(loc.LocationID)}
+                  style={{
+                    background: active ? 'var(--primary)' : 'rgba(0,0,0,0.3)',
+                    color: active ? '#fff' : 'var(--text-muted)',
+                    border: active ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.05)',
+                    padding: '0.6rem 1rem',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    fontWeight: active ? 'bold' : 'normal',
+                    transition: 'all 0.2s',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  {loc.Nome}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.85rem', alignItems: 'center' }}>
+          {justSaved && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#10b981',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+              background: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              padding: '0.6rem 1.25rem',
+              borderRadius: '8px'
+            }}>
+              <Check size={18} />
+              <span>Escolhas guardadas com sucesso!</span>
+            </div>
+          )}
+
+          {!isValid && !cannotPlay && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#f59e0b',
+              fontSize: '0.85rem',
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              padding: '0.6rem 1.2rem',
+              borderRadius: '8px',
+              maxWidth: '460px',
+              textAlign: 'center'
+            }}>
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <span>
+                {!hasAvailability
+                  ? "Seleciona pelo menos 1 horário disponível (ou marca 'Não posso jogar esta semana')."
+                  : "Seleciona pelo menos 1 campo aceitável onde possas jogar."}
+              </span>
+            </div>
+          )}
+
+          <button 
+            onClick={submitVote} 
+            disabled={saving || !isValid} 
+            className="btn-primary" 
+            style={{ 
+              minWidth: '220px',
+              opacity: (!isValid && !saving) ? 0.45 : 1,
+              cursor: (!isValid && !saving) ? 'not-allowed' : 'pointer',
+              background: justSaved ? '#10b981' : undefined,
+              borderColor: justSaved ? '#10b981' : undefined,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            {saving ? (
+              <>A gravar...</>
+            ) : justSaved ? (
+              <><Check size={18} /> Guardado!</>
+            ) : (
+              <>{hasVoted ? 'Atualizar Escolhas' : 'Submeter Escolhas'}</>
+            )}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
+import { ensureUserExists } from '../services/api';
 
 interface UserProfile {
   email: string;
@@ -33,33 +34,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [needsSetup, setNeedsSetup] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+    const handleSession = (session: any) => {
+      if (session?.user) {
         setToken(session.access_token);
-        const userMetadata = session.user.user_metadata;
-        setProfile({
+        const userMetadata = session.user.user_metadata || {};
+        
+        // Perfil preliminar para interface imediata
+        setProfile(prev => prev || {
           email: session.user.email || '',
-          name: userMetadata.full_name || session.user.email || 'User',
-          picture: userMetadata.avatar_url || ''
+          name: userMetadata.full_name || userMetadata.name || session.user.email || 'User',
+          picture: userMetadata.avatar_url || userMetadata.picture || ''
         });
-      }
-    });
 
-    // Listen for changes on auth state (logged in, signed out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setToken(session.access_token);
-        const userMetadata = session.user.user_metadata;
-        setProfile({
-          email: session.user.email || '',
-          name: userMetadata.full_name || session.user.email || 'User',
-          picture: userMetadata.avatar_url || ''
+        // Garantir criação e sincronização com public.users e group_members
+        ensureUserExists(session.user).then(dbProfile => {
+          if (dbProfile) {
+            setProfile(dbProfile);
+          }
+        }).catch(err => {
+          console.error("Erro na sincronização do utilizador com o Supabase:", err);
         });
       } else {
         setToken(null);
         setProfile(null);
       }
+    };
+
+    // Verificar sessão ativa
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session);
+    });
+
+    // Escutar alterações de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleSession(session);
     });
 
     return () => subscription.unsubscribe();

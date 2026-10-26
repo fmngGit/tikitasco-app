@@ -23,12 +23,14 @@ Para assegurar o isolamento dos dados de cada equipa:
 
 1.  **`users`**: Registo global da plataforma.
     *   `id` (UUID), `email`, `nome`, `avatar_url`.
-2.  **`groups`**: O espaço privado ("tenant").
-    *   `id` (UUID), `name`, `invite_code`, `created_at`.
+2.  **`groups`**: O espaço privado de cada equipa ("tenant").
+    *   `id` (UUID), `name`, `invite_code`, `created_at`, `plan_tier` ('free' | 'premium').
+    *   *Regra de Propriedade:* A subscrição Premium é associada ao **Grupo** e não ao utilizador individual. Apenas o Administrador do grupo pode efetuar o upgrade. Um utilizador pode ser Administrador de no máximo **1 Grupo Free**, mas de múltiplos (*n*) **Grupos Premium**.
 3.  **`group_members`**: Tabela de associação (N:M).
     *   `user_id`, `group_id`, `role` (owner, admin, member).
+    *   *Múltiplos Grupos:* Cada utilizador pode pertencer a múltiplos grupos simultaneamente. A interface disponibiliza um **Seletor de Grupo Ativo** para alternar de contexto, bem como a opção de **Sair do Grupo** (Leave Group) a qualquer momento.
 4.  **Gestão de Campos (Locations - Global vs Local)**:
-    *   **`global_locations`**: Base de dados partilhada de campos (id, nome, morada, preço). 
+    *   **`global_locations`**: Base de dados partilhada de campos (id, nome, morada, preço, horários de abertura/fecho por dia da semana e dias de encerramento). 
     *   **`group_locations`**: Tabela de associação (`group_id`, `location_id`) que define quais campos globais estão ativados para um grupo específico.
     *   *Crowdsourcing:* Qualquer utilizador pode visualizar campos globais e sugerir novos campos ou **reportar erros** (ex: preço desatualizado). Administradores da plataforma (ou do grupo) validam estas alterações. (Estratégia: Manter esta feature grátis para acelerar o crescimento inicial da base de dados de campos de futebol a nível nacional).
 5.  **Recursos Específicos (Tenant-scoped)**:
@@ -41,55 +43,110 @@ Para assegurar o isolamento dos dados de cada equipa:
 
 Para garantir uma visão unificada, listam-se abaixo todas as funcionalidades (incluindo as já existentes no MVP v0.1 e as planeadas para a arquitetura SaaS):
 
-### 3.1 Gestão de Utilizadores e Grupos
-*   **Autenticação:** Login suportado com qualquer Email (Password ou Magic Link), além de integrações diretas com contas Google e Apple (Apple Sign-In).
-*   **Perfis de Jogador:** Gestão de Avatar, Posição em Campo, e Nome.
-*   **Onboarding de Grupos (Futuro):** Criação de múltiplos grupos privados. Entrada no balneário via "Invite Link" ou código partilhado (ex: WhatsApp).
+### 3.1 Gestão de Utilizadores, Grupos e Convidados
+*   **Autenticação e Onboarding:** Login nativo com Google OAuth (Supabase Auth), com suporte arquitetural planeado para Email/Password (Magic Links) e Apple Sign-In. Implementa fluxo de Onboarding Obrigatório (`needsSetup`), exigindo a configuração de Nome e Fotografia na primeira sessão antes de libertar o acesso.
+*   **Edição de Perfil e Otimização de Fotografia:** O utilizador pode atualizar Nome e Avatar a qualquer momento. O upload de fotografia executa recorte centrado e compressão no cliente via HTML5 Canvas (150x150 px JPEG em base64), eliminando overhead de servidor e acelerando a renderização.
+*   **Cartão FIFA, Gráfico Radar e Modal do Jogador:** Visualização de Cartão de Jogador com nota OVR geral (média ponderada dos 6 atributos: Ataque, Defesa, Físico, Passe, Guarda-Redes e Fairplay na escala 1-99), gráfico radar poligonal SVG (0 a 100) e estatísticas acumuladas (Jogos, Vitórias, Empates, Derrotas, % de Sucesso). Ao clicar num jogador em qualquer ponto da aplicação, abre o `PlayerModal` com estatísticas detalhadas e histórico completo de jogos.
+*   **Jogadores Convidados (Guest Players):** Criação rápida de convidados (`is_guest: true`) com email `guest_<uuid>@convidado.tikitasco` diretamente a partir do registo de jogos ou do gerador de equipas, com suporte a edição de nome por administradores.
+*   **Reivindicação de Perfil Fantasma (Claim Ghost Player):** Ao criar conta Google real, o utilizador pode associar-se ao seu perfil anterior de convidado, fundindo todo o histórico de presenças em jogos (tabela `games`), votos recebidos (tabela `votes`), limpando conflitos e apagando o perfil temporário.
+*   **Eliminação de Conta (RGPD):** Desassociação das credenciais Google, transformando o registo em jogador convidado e salvaguardando a coerência das estatísticas dos restantes jogadores.
+*   **Instalação PWA:** Modal com instruções detalhadas para adicionar ao ecrã inicial em dispositivos iOS (Safari) e Android.
+*   **Multi-Tenancy e Gestão de Múltiplos Grupos:**
+    *   Um utilizador pode pertencer a múltiplos grupos simultaneamente;
+    *   **Seletor de Grupo Ativo:** Menu suspenso no cabeçalho para alternar instantaneamente entre equipas;
+    *   **Sair de Grupo:** Opção para o membro abandonar voluntariamente qualquer grupo a que pertença;
+    *   Criação de grupos privados com Invite Code e Invite Link direto para partilha no WhatsApp.
 
-### 3.2 Votações e Gestão de Jogos
-*   **Criação de Votações:** Admins lançam votações semanais de disponibilidade (Dias da semana, Horas, Campos).
-*   **Respostas e Quórum:** Os utilizadores indicam disponibilidade. A plataforma indica o estado em tempo real (Disponíveis, Não Podem, Faltam Votar) e valida se há jogadores suficientes (capacidade do campo).
-*   **Partilha Rápida:** Integração nativa para gerar mensagens automáticas e partilhar a votação no grupo de WhatsApp.
-*   **Marcação e Estado do Jogo (Futuro):** Após a votação, o Admin "tranca" um resultado vencedor e converte a votação num `Game`. O jogo transita entre estados:
-    *   🟡 `Marcado` (Os jogadores recebem confirmação do dia, hora e local).
-    *   🔴 `Cancelado` (Se chover ou faltar pessoal à última da hora).
-    *   🟢 `Realizado` (Ativa a inserção de resultados e ratings).
+### 3.2 Votações e Agenda Semanal (Organizar Próximo Jogo)
+*   **Controlo Total da Votação pelo Administrador:**
+    *   O Administrador define quais os dias da semana abertos a votação;
+    *   O Administrador define os *slots* horários disponíveis;
+    *   O Administrador seleciona os recintos desportivos autorizados para a semana;
+    *   O Administrador controla a janela temporal de votação (data/hora de **abertura** e de **fecho** oficial da votação).
+*   **Agenda Semanal Multi-Slot:** Votação para os dias e horários configurados com seleção de múltiplos horários e escolha explícita de recintos aceitáveis.
+*   **Cálculo Automático da Semana-Alvo:** Se a consulta for feita à sexta-feira, sábado ou domingo, a aplicação calcula automaticamente a segunda-feira da próxima semana; de segunda a quinta-feira fixa-se na semana atual.
+*   **Bloqueio de Dias Passados:** Desativação visual e bloqueio de cliques nos dias da semana que já tenham passado (`isDayInPast`).
+*   **Opção "Não Poderei Ir":** Botão explícito para limpar marcações e sinalizar indisponibilidade total na semana.
+*   **Motor de Sugestões e Quórum Dinâmico:** Algoritmo que calcula o dia e hora ideais, adapta o quórum mínimo necessário à modalidade de cada campo (6 jogadores para futebol indefinido, 14 para 7v7, 18 para 9v9 e 22 para 11v11), destaca o campo mais votado ("IDEAL"), sinaliza quando faltam jogadores ("FALTAM X") e apresenta acordeão clicável com avatares e nomes individuais dos votantes em cada campo.
+*   **Painel de Auditoria de Votações em 3 Colunas:** Monitorização em tempo real dividida entre:
+    *   *Disponíveis:* lista com avatares dos jogadores que marcaram presença;
+    *   *Não podem:* lista dos jogadores indisponíveis (foto a preto-e-branco e nome rasurado);
+    *   *Faltam Votar:* lista nominal dos membros do grupo (excluindo convidados) que ainda não responderam à convocatória.
+*   **Partilha Rápida no WhatsApp:** Geração automática e partilha de mensagem com o intervalo de datas da semana e link direto `#/agenda`.
+*   **Ciclo de Estados do Jogo e Calendário:** O Administrador converte a votação num `Game` com transição entre estados:
+    *   🟡 `Marcado`: Confirmação formal do dia, hora e local da partida. Ativa para todos os utilizadores o botão **"Adicionar ao Calendário"** (geração de ficheiro `.ics` ou integração direta com Google Calendar, Apple Calendar e Outlook com dia, hora e morada do campo).
+    *   🔴 `Cancelado`: Em caso de intempéries, indisponibilidade de recinto ou falta de quórum.
+    *   🟢 `Realizado`: A colocação do jogo no estado `Realizado` converte diretamente o evento no **registo oficial do jogo** (Módulo de Registo de Jogos). Este fluxo abre o formulário com a data, recinto e convocados pré-preenchidos, solicitando ao Administrador o resultado final (Res A vs Res B), equipas definitivas, modalidade disputada e custos/taxas por presença, atualizando de imediato todas as vitórias, empates, derrotas, pontos e OVR no Leaderboard, bem como as taxas arrecadadas na Tesouraria (exclusivo Premium).
 
-### 3.3 Balneário e Gamificação
-*   **Team Generator:** Algoritmo de geração automática de equipas equilibradas (com base nos ratings dos jogadores).
-*   **Leaderboard e Estatísticas:** Rankings baseados nas classificações pós-jogo (MVP, Golos, Ratings "estilo FIFA").
-*   **Histórico e Multimédia (Agenda):** Registo de jogos passados e futuros. Possibilidade de fazer **upload de vídeos/highlights** dos lances e golos (funcionalidade Premium).
+### 3.3 Balneário, Ratings FIFA e Gerador de Equipas (Exclusivo Premium)
+*   **Avaliação 360º de Atributos:** Votação mútua entre jogadores nos 6 atributos essenciais (Ataque, Defesa, Físico, Passe, Guarda-Redes e Fairplay, de 1 a 99), gerando o OVR ponderado automático de cada jogador.
+*   **Ordenação Flexível e Votação Rápida em Série:** Tabela de balneário ordenável por qualquer atributo ou por Estado (Votado / Pendente). Modo de "Votação Rápida em Série" (Batch Voting) que enfileira todos os jogadores pendentes para avaliação sequencial com indicador de progresso e opção de saltar.
+*   **Leaderboard Completo e Destaque:** 
+    *   Card de destaque com o "Último Jogo" disputado (resultado, data e escalações);
+    *   Pódio dos "Top 3 Jogadores" com Cartões FUT FIFA destacados (1º, 2º e 3º lugar);
+    *   Tabela geral com ordenação oficial por Pontos (V=3, E=1), Vitórias, Menor número de jogos e OVR, com indicação visual para Convidados e abertura de PlayerModal ao clicar.
+*   **Team Generator Inteligente:** 
+    *   Seleção de jogadores com atalhos "Selecionar Todos" e "Limpar";
+    *   Suporte para 2 Equipas (Standard) e 3 Equipas (Rei da Pista);
+    *   Algoritmo combinatório de 500 iterações que isola os melhores Guarda-Redes (atributo `Guarda_Redes`) para garantir 1 por equipa e minimiza a diferença média de OVR entre equipas;
+    *   Exportação direta para o Registo de Jogo ("Transferir para Registo de Jogo") ou cópia para área de transferência / WhatsApp.
 
-### 3.4 Gestão de Campos (Locations)
-*   **Base de Dados Global (Futuro):** Repositório partilhado de campos de futebol. 
-*   **Crowdsourcing (Futuro):** Qualquer utilizador pode sugerir campos novos ou reportar erros (preço desatualizado). O Admin do grupo escolhe quais os campos disponíveis para a sua equipa.
+### 3.4 Registo de Jogos e Histórico de Sessões
+*   **Três Modalidades Suportadas:**
+    1.  **Jogo Padrão (Standard):** 1 jogo único com resultado, equipas A e B (toggle rápido), seleção de recinto, custo do campo e taxa por jogador, com cálculo em tempo real do custo por presença: `(CustoCampo / TotalJogadores) + TaxaJogador`.
+    2.  **Rei da Pista:** 3 equipas (A, B, C) com múltiplos mini-jogos sequenciais em rondas, onde o vencedor assume a posição de Rei no jogo seguinte, o derrotado descansa e a terceira equipa entra como desafiante (em caso de empate, o Rei mantém-se).
+    3.  **Rotação Dinâmica:** Sessões multi-ronda com pool de jogadores (mínimo 4), divisão entre Equipa A, Equipa B e Banco de suplentes, com movimentação interativa de jogadores entre equipas e banco ronda a ronda.
+*   **Integração com Team Generator e Convidados Rápidos:** Pré-preenchimento automático ao vir do Team Generator e criação rápida de convidados inline auto-atribuídos à equipa com menos elementos.
+*   **Gestão de Vídeos e Highlights (30 Dias):** Upload direto para o Storage seguro (`videos/`) [exclusivo Premium] ou inserção de link externo de streaming (YouTube, Drive, etc.), com contagem decrescente de retenção no Histórico e alerta de expiração.
+*   **Histórico Interativo:** Linha temporal com separadores de "Votação / Agenda" e "Histórico de Jogos", filtros por campo e jogador, ordenação por data, agrupamento por `SessionID` para Rei da Pista e Rotação Dinâmica com acordeão expansível, e suporte a edição (`?edit=UUID`) ou eliminação com recálculo consistente de todo o Leaderboard. (Limitado a 15 jogos ou 3 meses no Plano Free; vitalício no Plano Premium).
 
-### 3.5 Tesouraria
-*   **Controlo Financeiro:** Registo de despesas (aluguer de campo, bolas) e controlo individual de quotas (quem já pagou vs quem tem dívidas).
+### 3.5 Ficha Técnica e Gestão de Campos (Locations)
+*   **Base de Dados Centralizada:** Repositório de recintos desportivos com barra de pesquisa e filtros em tempo real.
+*   **Ficha Técnica Detalhada:** 
+    *   Nome oficial, morada física, direções e navegação no Google Maps;
+    *   **Horário de Funcionamento:** Registo dos horários de abertura e fecho por dia da semana e dias de encerramento total (ex: domingos ou feriados);
+    *   **Validação de Horários de Votação:** O sistema impede a criação de votações para horários ou dias em que o campo se encontre encerrado;
+    *   Tabela de preços (preço base/hora, aluguer de bola e coletes com indicação de valor ou grátis);
+    *   Tipo de piso com tags coloridas (Sintético, Taco, Cimento, Relva Natural), modalidade (5, 7, 9, 11), cobertura (Indoor/Outdoor), balneários (disponíveis ou não);
+    *   Galeria de fotos reais com ImageLightbox;
+    *   Secção expansível "Contactos e Notas" com telefone direto (`tel:`), email direto (`mailto:`) e notas de acesso.
+*   **Modal de Registo/Edição com Mapa Interativo (Leaflet):** Integração do MapPicker para seleção de localização via pesquisa de morada ou colocação de pin direto no mapa com coordenadas GPS.
+*   **Crowdsourcing:** Registo e edição de novos campos com upload de fotos diretamente para o Storage.
+*   **Filtro por Grupo:** O Administrador escolhe quais os campos que surgem na votação semanal da sua equipa.
+
+### 3.6 Tesouraria e Caixa do Grupo (100% Exclusivo Premium)
+*   **Gestão Exclusiva de Caixa Comum:** Controlo do fundo de maneio / saldo coletivo acumulado ("Caixinha") alimentado pelas taxas fixas recolhidas por jogo a cada participante. Não se destina ao pagamento de jogos em si, mas sim ao saldo coletivo do grupo.
+*   **Dashboard Financeiro em Tempo Real:** 3 indicadores principais: Saldo Disponível (com destaque verde/vermelho), Total Arrecadado (taxas de jogos) e Total de Despesas.
+*   **Despesas Coletivas do Grupo:** Registo de despesas associadas (compra de bolas, coletes, água, farmácia/primeiros socorros, lanches) com anexação de faturas/recibos fotográficos via upload seguro (`receipts/`) e visualização via ImageLightbox.
+*   **Despesas Mistas e Contribuições Diretas:** Suporte a despesas financiadas pela Caixinha (`ValorCaixa`) e/ou contribuições diretas voluntárias repartidas por jogadores específicos.
+*   **Ranking de Contribuições por Jogador:** Listagem ordenada por ordem decrescente do valor total contribuído por cada membro (taxas de presença em jogos + contribuições diretas em compras coletivas).
+*   **Auditoria, Edição e Exportação:** Edição de despesas existentes e exportação do balanço financeiro em PDF/Excel.
 
 ---
 
 ## 4. Planos e Funcionalidades (Freemium vs Premium)
 
-A aplicação adotará um modelo de negócio Freemium. Para incentivar o upgrade sem prejudicar a usabilidade base, a divisão de funcionalidades será a seguinte:
+A aplicação adota um modelo de subscrição **por Grupo** (Tenant). As subscrições Premium são contratadas pelo Administrador do Grupo, garantindo que todos os membros da equipa usufruem das funcionalidades avançadas.
 
 ### ⚽ Plano Amador (100% Grátis)
-*   Acesso a todas as funcionalidades de Votação, Team Generator e Tesouraria.
-*   **Publicidade:** Anúncios não-intrusivos ativados (Banners AdMob direcionados a Desporto ou de Patrocinadores Locais B2B).
-*   **Limites:**
-    *   Máximo de **15 jogadores** ativos por grupo.
-    *   Histórico e Estatísticas guardados apenas durante **3 meses**.
-    *   Criação limitada a 1 Grupo como Administrador (pode pertencer a vários como jogador).
+Desenhado para grupos informais que necessitam apenas da organização essencial das convocatórias e marcação de campos:
+*   **Funcionalidades Incluídas:** As **únicas funcionalidades disponíveis** no Plano Free são a **Agenda Semanal (Votações)** e a **Consulta de Campos**.
+*   **Limite de Membros:** Máximo de **15 pessoas** ativas por grupo.
+*   **Histórico de Jogos:** Limitado a um teto máximo de **15 jogos** ou **3 meses** de histórico (o que for atingido primeiro).
+*   **Publicidade:** Exibição de anúncios **não-intrusivos** e estritamente contextuais relacionados com **Desporto** (banners de parceiros desportivos locais, marcas ou material desportivo).
+*   **Regra de Administrador:** Cada utilizador só pode ser Administrador/Owner de **1 Grupo Free** (podendo pertencer como jogador comum a outros grupos).
 
 ### 🏆 Plano TikiTasco Pro (Ex: 2.99€ / Mês por Grupo)
-Pago pelo Administrador do Grupo via Web (Stripe) para isentar taxas das App Stores.
-*   **Sem Anúncios:** Experiência 100% limpa (Ad-Free).
-*   **Limites Removidos:** 
-    *   Jogadores ilimitados no grupo.
-    *   Histórico, Agenda e Estatísticas mantidos para **sempre**.
-*   **Multimédia:** Capacidade de fazer **upload de vídeos/highlights** dos jogos diretamente para a plataforma (os utilizadores gratuitos só podem partilhar links externos).
-*   **Exportação Financeira:** Possibilidade de exportar a folha de Tesouraria em PDF/Excel.
-*   **Permissões Avançadas:** Possibilidade de nomear múltiplos Co-Admins ou Tesoureiros no grupo.
+Subscrição associada ao **Grupo**, ativada e gerida exclusivamente pelo **Administrador do Grupo** via Stripe Web:
+*   **Multigrupos para Admins:** Um utilizador pode ser Administrador de múltiplos (*n*) **Grupos Premium**.
+*   **Sem Anúncios:** Experiência 100% limpa e focada (Ad-Free) para todos os membros do grupo.
+*   **Membros Ilimitados:** Sem restrição de 15 pessoas (perfeito para grupos alargados e rotativos).
+*   **Balneário, Gamification e Leaderboard:** Desbloqueio completo da Avaliação 360º de atributos FIFA, pódio FUT FIFA, histórico estatístico e radar de cada jogador.
+*   **Team Generator Inteligente:** Balanceamento automático de 2 e 3 equipas com distribuição de guarda-redes e transferência direta para a folha de jogo.
+*   **Histórico Vitalício e Registo Multi-Modalidade:** Registo nas 3 modalidades (Standard, Rei da Pista e Rotação Dinâmica) sem limite de 15 jogos ou 3 meses.
+*   **Módulo de Tesouraria Completo:** Acesso total à gestão da Caixinha do grupo, taxas por presença, despesas coletivas com comprovativos fotográficos (upload de faturas) e exportação contabilística (PDF/Excel).
+*   **Multimédia Avançada:** Capacidade de fazer **upload direto de ficheiros de vídeo e melhores momentos** (highlights) para o Storage seguro da plataforma com janela de retenção.
+*   **Permissões Avançadas:** Possibilidade de nomear múltiplos Co-Admins e Tesoureiros no grupo.
 
 ---
 
